@@ -54,14 +54,14 @@ const fn generate_knight_attack(square: u8) -> u64 {
     let no_12 = bb & !(RANK[1] | RANK[2]);
     let no_78 = bb & !(RANK[7] | RANK[8]);
 
-    ((no_ab & !RANK[8]) << 6)  | // move left-left-up
-    ((no_ab & !RANK[1]) >> 10) | // move left-left-down
-    ((no_gh & !RANK[8]) << 10) | // move right-right-up
-    ((no_gh & !RANK[1]) >> 6)  | // move right-right-down
-    ((no_12 & !FILE_H) >> 15) | // move right-down-down
-    ((no_12 & !FILE_A) >> 17) | // move left-down-down
-    ((no_78 & !FILE_H) << 17) | // move right-up-up
-    ((no_78 & !FILE_A) << 15)   // move left-up-up
+    ((no_ab & !RANK[8]) << 6)  | // left-left-up
+    ((no_ab & !RANK[1]) >> 10) | // left-left-down
+    ((no_gh & !RANK[8]) << 10) | // right-right-up
+    ((no_gh & !RANK[1]) >> 6)  | // right-right-down
+    ((no_12 & !FILE_H) >> 15)  | // right-down-down
+    ((no_12 & !FILE_A) >> 17)  | // left-down-down
+    ((no_78 & !FILE_H) << 17)  | // right-up-up
+    ((no_78 & !FILE_A) << 15)    // left-up-up
 }
 
 static KNIGHT_ATTACKS: [u64; 64] = {
@@ -449,6 +449,10 @@ mod tests {
     use super::*;
     use std::collections::HashSet;
 
+    fn sq_to_bb(lst: &[u8]) -> u64 {
+        lst.iter().fold(0u64, |s, &a| s | (1 << a))
+    }
+
     #[test]
     fn fen_start() {
         let pos = Position::from_fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
@@ -634,25 +638,26 @@ mod tests {
 
     #[test]
     fn knight_attack_table() {
-        // Array of squares -> bitboard
-        let f = |lst: &[u8]| lst.iter().fold(0u64, |s, &a| s | (1 << a));
-
         // See https://www.chessprogramming.org/File:Lerf.JPG
-        assert_eq!(KNIGHT_ATTACKS[0],  f(&[10, 17]));
-        assert_eq!(KNIGHT_ATTACKS[1],  f(&[11, 16, 18]));
-        assert_eq!(KNIGHT_ATTACKS[6],  f(&[12, 21, 23]));
-        assert_eq!(KNIGHT_ATTACKS[7],  f(&[13, 22]));
-        assert_eq!(KNIGHT_ATTACKS[8],  f(&[2, 18, 25]));
-        assert_eq!(KNIGHT_ATTACKS[11], f(&[1, 5, 17, 21, 26, 28]));
-        assert_eq!(KNIGHT_ATTACKS[15], f(&[5, 21, 30]));
-        assert_eq!(KNIGHT_ATTACKS[25], f(&[8, 10, 19, 35, 40, 42]));
-        assert_eq!(KNIGHT_ATTACKS[36], f(&[19, 21, 26, 30, 42, 46, 51, 53]));
-        assert_eq!(KNIGHT_ATTACKS[48], f(&[33, 42, 58]));
-        assert_eq!(KNIGHT_ATTACKS[55], f(&[38, 45, 61]));
-        assert_eq!(KNIGHT_ATTACKS[56], f(&[41, 50]));
-        assert_eq!(KNIGHT_ATTACKS[57], f(&[40, 42, 51]));
-        assert_eq!(KNIGHT_ATTACKS[62], f(&[45, 47, 52]));
-        assert_eq!(KNIGHT_ATTACKS[63], f(&[46, 53]));
+        assert_eq!(KNIGHT_ATTACKS[0],  sq_to_bb(&[10, 17]));
+        assert_eq!(KNIGHT_ATTACKS[1],  sq_to_bb(&[11, 16, 18]));
+        assert_eq!(KNIGHT_ATTACKS[8],  sq_to_bb(&[2, 18, 25]));
+
+        assert_eq!(KNIGHT_ATTACKS[6],  sq_to_bb(&[12, 21, 23]));
+        assert_eq!(KNIGHT_ATTACKS[7],  sq_to_bb(&[13, 22]));
+        assert_eq!(KNIGHT_ATTACKS[15], sq_to_bb(&[5, 21, 30]));
+
+        assert_eq!(KNIGHT_ATTACKS[48], sq_to_bb(&[33, 42, 58]));
+        assert_eq!(KNIGHT_ATTACKS[56], sq_to_bb(&[41, 50]));
+        assert_eq!(KNIGHT_ATTACKS[57], sq_to_bb(&[40, 42, 51]));
+
+        assert_eq!(KNIGHT_ATTACKS[55], sq_to_bb(&[38, 45, 61]));
+        assert_eq!(KNIGHT_ATTACKS[62], sq_to_bb(&[45, 47, 52]));
+        assert_eq!(KNIGHT_ATTACKS[63], sq_to_bb(&[46, 53]));
+
+        assert_eq!(KNIGHT_ATTACKS[11], sq_to_bb(&[1, 5, 17, 21, 26, 28]));
+        assert_eq!(KNIGHT_ATTACKS[25], sq_to_bb(&[8, 10, 19, 35, 40, 42]));
+        assert_eq!(KNIGHT_ATTACKS[36], sq_to_bb(&[19, 21, 26, 30, 42, 46, 51, 53]));
     }
 
     #[test]
