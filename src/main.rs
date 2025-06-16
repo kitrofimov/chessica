@@ -64,11 +64,39 @@ const fn generate_knight_attack(square: u8) -> u64 {
     ((no_78 & !FILE_A) << 15)    // left-up-up
 }
 
+const fn generate_king_attack(square: u8) -> u64 {
+    let bb = 1u64 << square;
+
+    let no_a = bb & !FILE_A;
+    let no_h = bb & !FILE_H;
+    let no_1 = bb & !RANK[1];
+    let no_8 = bb & !RANK[8];
+
+    (no_a >> 1)        | // right
+    (no_h << 1)        | // left
+    (no_1 >> 8)        | // down
+    (no_8 << 8)        | // up
+    (no_a & no_8) << 7 | // up-left
+    (no_h & no_8) << 9 | // up-right
+    (no_a & no_1) >> 9 | // down-left
+    (no_h & no_1) >> 7   // down-right
+}
+
 static KNIGHT_ATTACKS: [u64; 64] = {
     let mut table = [0u64; 64];
     let mut i = 0;
     while i < 64 {
         table[i] = generate_knight_attack(i as u8);
+        i += 1;
+    }
+    table
+};
+
+static KING_ATTACKS: [u64; 64] = {
+    let mut table = [0u64; 64];
+    let mut i = 0;
+    while i < 64 {
+        table[i] = generate_king_attack(i as u8);
         i += 1;
     }
     table
@@ -413,7 +441,26 @@ impl Position {
     }
 
     fn generate_pseudo_king_moves(&self, moves: &mut Vec<Move>) {
-        unimplemented!();
+        let (mut king, friendly) = if self.whites_turn {
+            (self.w.king, self.w.all)
+        } else {
+            (self.b.king, self.b.all)
+        };
+
+        while king != 0 {
+            let from = pop_lsb(&mut king);
+            let mut attacks = KING_ATTACKS[from as usize] & !friendly;
+            while attacks != 0 {
+                let to = pop_lsb(&mut attacks);
+                moves.push(Move {
+                    from: from as u8,
+                    to: to as u8,
+                    piece: Piece::King,
+                    promotion: None,
+                    en_passant: false,
+                });
+            }
+        }
     }
 
     fn generate_pseudo_moves(&self) -> Vec<Move> {
@@ -423,7 +470,7 @@ impl Position {
         // self.generate_pseudo_bishop_moves(&mut moves);
         // self.generate_pseudo_rook_moves  (&mut moves);
         // self.generate_pseudo_queen_moves (&mut moves);
-        // self.generate_pseudo_king_moves  (&mut moves);
+        self.generate_pseudo_king_moves  (&mut moves);
         moves
     }
 }
@@ -436,8 +483,8 @@ fn main() {
     let moves = pos.generate_pseudo_moves();
     for m in moves {
         println!(
-            "Move: {} to {}", 
-            square_idx_to_string(m.from), 
+            "Move: {} to {}",
+            square_idx_to_string(m.from),
             square_idx_to_string(m.to)
         );
     }
@@ -706,6 +753,51 @@ mod tests {
             Move { from: 41, to: 51, piece: Piece::Knight, promotion: None, en_passant: false },
             Move { from: 41, to: 56, piece: Piece::Knight, promotion: None, en_passant: false },
             Move { from: 41, to: 58, piece: Piece::Knight, promotion: None, en_passant: false },
+        ].into();
+
+        let moves_set: HashSet<Move> = moves.into_iter().collect();
+        assert_eq!(moves_set, expected);
+    }
+
+    #[test]
+    fn king_attack_table() {
+        // See https://www.chessprogramming.org/File:Lerf.JPG
+        assert_eq!(KING_ATTACKS[0],  sq_to_bb(&[1, 8, 9]));
+        assert_eq!(KING_ATTACKS[7],  sq_to_bb(&[6, 14, 15])); 
+        assert_eq!(KING_ATTACKS[56], sq_to_bb(&[48, 49, 57]));
+        assert_eq!(KING_ATTACKS[63], sq_to_bb(&[54, 55, 62]));
+
+        assert_eq!(KING_ATTACKS[3],  sq_to_bb(&[2, 4, 10, 11, 12]));
+        assert_eq!(KING_ATTACKS[16], sq_to_bb(&[8, 9, 17, 24, 25]));
+        assert_eq!(KING_ATTACKS[39], sq_to_bb(&[30, 31, 38, 46, 47]));
+        assert_eq!(KING_ATTACKS[58], sq_to_bb(&[49, 50, 51, 57, 59]));
+
+        assert_eq!(KING_ATTACKS[42], sq_to_bb(&[33, 34, 35, 41, 43, 49, 50, 51]));
+        assert_eq!(KING_ATTACKS[19], sq_to_bb(&[10, 11, 12, 18, 20, 26, 27, 28]));
+    }
+
+    #[test]
+    fn pseudo_king_moves_start_position() {
+        let pos = Position::start();
+        let mut moves = Vec::new();
+        pos.generate_pseudo_king_moves(&mut moves);
+        assert_eq!(moves.len(), 0);
+    }
+
+    #[test]
+    fn pseudo_king_moves_endgame() {
+        let pos = Position::from_fen("8/8/8/8/7P/6K1/1r6/k7 w - - 0 1");
+        let mut moves = Vec::new();
+        pos.generate_pseudo_king_moves(&mut moves);
+
+        let expected: HashSet<Move> = [
+            Move { from: 22, to: 13, piece: Piece::King, promotion: None, en_passant: false },
+            Move { from: 22, to: 14, piece: Piece::King, promotion: None, en_passant: false },
+            Move { from: 22, to: 15, piece: Piece::King, promotion: None, en_passant: false },
+            Move { from: 22, to: 21, piece: Piece::King, promotion: None, en_passant: false },
+            Move { from: 22, to: 23, piece: Piece::King, promotion: None, en_passant: false },
+            Move { from: 22, to: 29, piece: Piece::King, promotion: None, en_passant: false },
+            Move { from: 22, to: 30, piece: Piece::King, promotion: None, en_passant: false },
         ].into();
 
         let moves_set: HashSet<Move> = moves.into_iter().collect();
