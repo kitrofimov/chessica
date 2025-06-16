@@ -47,7 +47,7 @@ fn print_bitboard(bb: u64) {
 }
 
 const RANK: [u64; 8+1] = [
-    0x0000000000000000, // Rank 0 (unused, for convenience)
+    0,                  // Rank 0 (unused, for convenience)
     0x00000000000000FF, // Rank 1
     0x000000000000FF00, // Rank 2
     0x0000000000FF0000, // Rank 3
@@ -502,7 +502,7 @@ mod tests {
         let mut moves = Vec::new();
         pos.generate_pseudo_pawn_moves(&mut moves);
 
-        let expected = vec![
+        let expected: HashSet<Move> = [
             Move { from: 8,  to: 16, piece: Piece::Pawn, promotion: None, en_passant: false },
             Move { from: 9,  to: 17, piece: Piece::Pawn, promotion: None, en_passant: false },
             Move { from: 10, to: 18, piece: Piece::Pawn, promotion: None, en_passant: false },
@@ -519,12 +519,10 @@ mod tests {
             Move { from: 13, to: 29, piece: Piece::Pawn, promotion: None, en_passant: false },
             Move { from: 14, to: 30, piece: Piece::Pawn, promotion: None, en_passant: false },
             Move { from: 15, to: 31, piece: Piece::Pawn, promotion: None, en_passant: false },
-        ];
+        ].into();
 
         let moves_set: HashSet<Move> = moves.into_iter().collect();
-        let expected_set: HashSet<Move> = expected.into_iter().collect();
-
-        assert_eq!(moves_set, expected_set);
+        assert_eq!(moves_set, expected);
     }
 
     #[test]
@@ -533,7 +531,7 @@ mod tests {
         let mut moves = Vec::new();
         pos.generate_pseudo_pawn_moves(&mut moves);
 
-        let expected = vec![
+        let expected: HashSet<Move> = [
             Move { from: 48, to: 41, piece: Piece::Pawn, promotion: None, en_passant: false },
             Move { from: 50, to: 41, piece: Piece::Pawn, promotion: None, en_passant: false },
             Move { from: 50, to: 42, piece: Piece::Pawn, promotion: None, en_passant: false },
@@ -565,12 +563,10 @@ mod tests {
             Move { from: 13, to: 5, piece: Piece::Pawn, promotion: Some(Piece::Queen), en_passant: false },
             Move { from: 13, to: 4, piece: Piece::Pawn, promotion: Some(Piece::Queen), en_passant: false },
             Move { from: 14, to: 6, piece: Piece::Pawn, promotion: Some(Piece::Queen), en_passant: false }
-        ];
+        ].into();
 
         let moves_set: HashSet<Move> = moves.into_iter().collect();
-        let expected_set: HashSet<Move> = expected.into_iter().collect();
-
-        assert_eq!(moves_set, expected_set);
+        assert_eq!(moves_set, expected);
     }
 
     #[test]
@@ -579,14 +575,12 @@ mod tests {
         let mut moves = Vec::new();
         pos.generate_pseudo_pawn_moves(&mut moves);
 
-        let expected = vec![
+        let expected: HashSet<Move> = [
             Move { from: 34, to: 42, piece: Piece::Pawn, promotion: None, en_passant: false },
             Move { from: 34, to: 41, piece: Piece::Pawn, promotion: None, en_passant: true },
-        ];
+        ].into();
 
         let moves_set: HashSet<Move> = moves.into_iter().collect();
-        let expected_set: HashSet<Move> = expected.into_iter().collect();
-
-        assert_eq!(moves_set, expected_set);
+        assert_eq!(moves_set, expected);
     }
 }
