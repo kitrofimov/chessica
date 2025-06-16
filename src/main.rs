@@ -618,13 +618,14 @@ mod tests {
 
     #[test]
     fn pseudo_pawn_moves_en_passant() {
-        let pos = Position::from_fen("8/6k1/8/1pP5/8/8/5K2/8 w - b6 0 1");
+        let pos = Position::from_fen("8/6k1/8/1pP1Pp2/8/8/5K2/8 w - b6 0 1");
         let mut moves = Vec::new();
         pos.generate_pseudo_pawn_moves(&mut moves);
 
         let expected: HashSet<Move> = [
             Move { from: 34, to: 42, piece: Piece::Pawn, promotion: None, en_passant: false },
             Move { from: 34, to: 41, piece: Piece::Pawn, promotion: None, en_passant: true },
+            Move { from: 36, to: 44, piece: Piece::Pawn, promotion: None, en_passant: false },
         ].into();
 
         let moves_set: HashSet<Move> = moves.into_iter().collect();
