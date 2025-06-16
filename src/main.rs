@@ -1,3 +1,60 @@
+fn pop_lsb(bitboard: &mut u64) -> u8 {
+    let result = bitboard.trailing_zeros() as u8;
+    *bitboard &= *bitboard - 1;
+    result
+}
+
+fn square_idx_to_string(sq: u8) -> String {
+    let file = (sq % 8) as u8;
+    let rank = (sq / 8) as u8;
+    format!("{}{}", (file + b'a') as char, rank + 1)
+}
+
+fn signed_shift(bb: u64, offset: i8) -> u64 {
+    if offset >= 0 {
+        bb << offset
+    } else {
+        bb >> (-offset)
+    }
+}
+
+fn print_bitboard(bb: u64) {
+    for rank in (0..8).rev() {
+        print!("{} ", rank + 1);
+        for file in 0..8 {
+            let square = 1u64 << (rank * 8 + file);
+            if bb & square != 0 {
+                print!("+ ")
+            } else {
+                print!(". ")
+            }
+        }
+        println!();
+    }
+    println!("  a b c d e f g h");
+}
+
+const RANK: [u64; 8+1] = [
+    0x0000000000000000, // Rank 0 (unused, for convenience)
+    0x00000000000000FF, // Rank 1
+    0x000000000000FF00, // Rank 2
+    0x0000000000FF0000, // Rank 3
+    0x00000000FF000000, // Rank 4
+    0x000000FF00000000, // Rank 5
+    0x0000FF0000000000, // Rank 6
+    0x00FF000000000000, // Rank 7
+    0xFF00000000000000, // Rank 8
+];
+
+const FILE_A: u64 = 0x8080808080808080; // 0b10000000
+const FILE_B: u64 = 0x4040404040404040; // 0b01000000
+const FILE_C: u64 = 0x2020202020202020; // 0b00100000
+const FILE_D: u64 = 0x1010101010101010; // 0b00010000
+const FILE_E: u64 = 0x0808080808080808; // 0b00001000
+const FILE_F: u64 = 0x0404040404040404; // 0b00000100
+const FILE_G: u64 = 0x0202020202020202; // 0b00000010
+const FILE_H: u64 = 0x0101010101010101; // 0b00000001
+
 #[derive(Default)]
 struct Bitboards {
     all:     u64,
@@ -13,6 +70,24 @@ impl Bitboards {
     fn update_all(&mut self) {
         self.all = self.pawns | self.knights | self.bishops | self.rooks | self.queens | self.king;
     }
+}
+
+#[derive(Debug, PartialEq, Eq, Hash)]
+enum Piece {
+    Pawn,
+    Knight,
+    Bishop,
+    Rook,
+    Queen,
+    King,
+}
+
+#[derive(Debug, PartialEq, Eq, Hash)]
+struct Move {
+    from: u8,
+    to: u8,
+    piece: Piece,
+    promotion: Option<Piece>,
 }
 
 /// Uses [Little-Endian Rank-File Mapping](https://www.chessprogramming.org/Square_Mapping_Considerations#Little-Endian_Rank-File_Mapping)
@@ -65,7 +140,6 @@ impl std::fmt::Debug for Position {
             }
         }
 
-        writeln!(f, "\n  a b c d e f g h")?;
         for (rank, row) in board.iter().enumerate() {
             write!(f, "{} ", 8 - rank)?;
             for square in row {
@@ -73,6 +147,7 @@ impl std::fmt::Debug for Position {
             }
             writeln!(f)?;
         }
+        writeln!(f, "  a b c d e f g h")?;
         writeln!(f, "Turn: {}", if self.whites_turn { "White" } else { "Black" })
     }
 }
@@ -154,18 +229,138 @@ impl Position {
             whites_turn: side_to_move == "w"
         }
     }
+
+    fn add_pawn_moves(moves: &mut Vec<Move>, to_mask: u64, offset: i8, promotion: bool) {
+        let mut bb = to_mask;
+        while bb != 0 {
+            let to = pop_lsb(&mut bb) as i8;
+            let from = to - offset;
+            if promotion {  // TODO: if inside a loop? slow?
+                for promo in [Piece::Queen, Piece::Rook, Piece::Bishop, Piece::Knight] {
+                    moves.push(Move {
+                        from: from as u8,
+                        to: to as u8,
+                        piece: Piece::Pawn,
+                        promotion: Some(promo),
+                    });
+                }
+            } else {
+                moves.push(Move {
+                    from: from as u8,
+                    to: to as u8,
+                    piece: Piece::Pawn,
+                    promotion: None,
+                });
+            }
+        }
+    }
+
+    fn generate_pseudo_pawn_moves(&self, moves: &mut Vec<Move>) {
+        let empty = !self.occupied;
+        let (pawns, enemy, left_offset, forward_offset, right_offset,
+             start_rank, promo_rank, mask_right, mask_left) =
+            if self.whites_turn {
+                (
+                    self.w.pawns,
+                    self.b.all,
+                    7,
+                    8,
+                    9,
+                    RANK[2],
+                    RANK[8],
+                    !FILE_A,
+                    !FILE_H,
+                )
+            } else {
+                (
+                    self.b.pawns,
+                    self.w.all,
+                    -7,
+                    -8,
+                    -9,
+                    RANK[7],
+                    RANK[1],
+                    !FILE_H,
+                    !FILE_A,
+                )
+            };
+
+        let single = signed_shift(pawns, forward_offset) & empty;
+        let double = signed_shift(signed_shift(pawns & start_rank, forward_offset) & empty, forward_offset) & empty;
+        let left   = signed_shift(pawns & mask_left, left_offset) & enemy;
+        let right  = signed_shift(pawns & mask_right, right_offset) & enemy;
+
+        // Handle promotions separately
+        let promo_push  = single & promo_rank;
+        let promo_left  = left & promo_rank;
+        let promo_right = right & promo_rank;
+
+        let non_promo_push  = single & !promo_rank;
+        let non_promo_left  = left & !promo_rank;
+        let non_promo_right = right & !promo_rank;
+
+        Self::add_pawn_moves(moves, non_promo_push, forward_offset, false);
+        Self::add_pawn_moves(moves, double, 2 * forward_offset, false);
+        Self::add_pawn_moves(moves, non_promo_left, left_offset, false);
+        Self::add_pawn_moves(moves, non_promo_right, right_offset, false);
+
+        Self::add_pawn_moves(moves, promo_push, forward_offset, true);
+        Self::add_pawn_moves(moves, promo_left, left_offset, true);
+        Self::add_pawn_moves(moves, promo_right, right_offset, true);
+    }
+
+    fn generate_pseudo_knight_moves(&self, moves: &mut Vec<Move>) {
+        unimplemented!();
+    }
+
+    fn generate_pseudo_bishop_moves(&self, moves: &mut Vec<Move>) {
+        unimplemented!();
+    }
+
+    fn generate_pseudo_rook_moves(&self, moves: &mut Vec<Move>) {
+        unimplemented!();
+    }
+
+    fn generate_pseudo_queen_moves(&self, moves: &mut Vec<Move>) {
+        unimplemented!();
+    }
+
+    fn generate_pseudo_king_moves(&self, moves: &mut Vec<Move>) {
+        unimplemented!();
+    }
+
+    fn generate_pseudo_moves(&self) -> Vec<Move> {
+        let mut moves = Vec::new();
+        self.generate_pseudo_pawn_moves  (&mut moves);
+        // self.generate_pseudo_knight_moves(&mut moves);
+        // self.generate_pseudo_bishop_moves(&mut moves);
+        // self.generate_pseudo_rook_moves  (&mut moves);
+        // self.generate_pseudo_queen_moves (&mut moves);
+        // self.generate_pseudo_king_moves  (&mut moves);
+        moves
+    }
 }
 
 
 fn main() {
     let pos = Position::start();
     println!("{:?}", pos);
+
+    let moves = pos.generate_pseudo_moves();
+    for m in moves {
+        println!(
+            "Move: {} to {}", 
+            square_idx_to_string(m.from), 
+            square_idx_to_string(m.to)
+        );
+    }
 }
 
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::collections::HashSet;
 
     #[test]
     fn fen_start() {
@@ -230,5 +425,111 @@ mod tests {
 
         assert_eq!(pos.occupied,  (1 << 4) | (1 << 9) | (1 << 27) | (1 << 38) | (1 << 50) | (1 << 60));
         assert_eq!(pos.whites_turn, true);
+    }
+
+    #[test]
+    fn pop_lsb_test() {
+        let mut bb = 0b101010;
+        assert_eq!(pop_lsb(&mut bb), 1);
+        assert_eq!(bb, 0b101000);
+        assert_eq!(pop_lsb(&mut bb), 3);
+        assert_eq!(bb, 0b100000);
+        assert_eq!(pop_lsb(&mut bb), 5);
+        assert_eq!(bb, 0b000000);
+    }
+
+    #[test]
+    fn square_idx_to_string_test() {
+        assert_eq!(square_idx_to_string(0), "a1");
+        assert_eq!(square_idx_to_string(7), "h1");
+        assert_eq!(square_idx_to_string(56), "a8");
+        assert_eq!(square_idx_to_string(63), "h8");
+        assert_eq!(square_idx_to_string(27), "d4");
+    }
+
+    #[test]
+    fn signed_shift_test() {
+        assert_eq!(signed_shift(0b01100001, 1), 0b11000010);
+        assert_eq!(signed_shift(0b01100001, -1), 0b00110000);
+        assert_eq!(signed_shift(0b00000010, 2), 0b00001000);
+        assert_eq!(signed_shift(0b00001000, -2), 0b00000010);
+        assert_eq!(signed_shift(0b10000000, -7), 0b00000001);
+    }
+
+    #[test]
+    fn pseudo_pawn_moves_start_position() {
+        let pos = Position::start();
+        let mut moves = Vec::new();
+        pos.generate_pseudo_pawn_moves(&mut moves);
+
+        let expected = vec![
+            Move { from: 8,  to: 16, piece: Piece::Pawn, promotion: None },
+            Move { from: 9,  to: 17, piece: Piece::Pawn, promotion: None },
+            Move { from: 10, to: 18, piece: Piece::Pawn, promotion: None },
+            Move { from: 11, to: 19, piece: Piece::Pawn, promotion: None },
+            Move { from: 12, to: 20, piece: Piece::Pawn, promotion: None },
+            Move { from: 13, to: 21, piece: Piece::Pawn, promotion: None },
+            Move { from: 14, to: 22, piece: Piece::Pawn, promotion: None },
+            Move { from: 15, to: 23, piece: Piece::Pawn, promotion: None },
+            Move { from: 8,  to: 24, piece: Piece::Pawn, promotion: None },
+            Move { from: 9,  to: 25, piece: Piece::Pawn, promotion: None },
+            Move { from: 10, to: 26, piece: Piece::Pawn, promotion: None },
+            Move { from: 11, to: 27, piece: Piece::Pawn, promotion: None },
+            Move { from: 12, to: 28, piece: Piece::Pawn, promotion: None },
+            Move { from: 13, to: 29, piece: Piece::Pawn, promotion: None },
+            Move { from: 14, to: 30, piece: Piece::Pawn, promotion: None },
+            Move { from: 15, to: 31, piece: Piece::Pawn, promotion: None },
+        ];
+
+        let moves_set: HashSet<Move> = moves.into_iter().collect();
+        let expected_set: HashSet<Move> = expected.into_iter().collect();
+
+        assert_eq!(moves_set, expected_set);
+    }
+
+    #[test]
+    fn pseudo_pawn_moves_endgame() {
+        let pos = Position::from_fen("8/p1pp3p/BN6/3R4/1k2K3/8/1p3pp1/2Q1B3 b - - 0 1");
+        let mut moves = Vec::new();
+        pos.generate_pseudo_pawn_moves(&mut moves);
+
+        let expected = vec![
+            Move { from: 48, to: 41, piece: Piece::Pawn, promotion: None },
+            Move { from: 50, to: 41, piece: Piece::Pawn, promotion: None },
+            Move { from: 50, to: 42, piece: Piece::Pawn, promotion: None },
+            Move { from: 50, to: 34, piece: Piece::Pawn, promotion: None },
+            Move { from: 51, to: 43, piece: Piece::Pawn, promotion: None },
+            Move { from: 55, to: 47, piece: Piece::Pawn, promotion: None },
+            Move { from: 55, to: 39, piece: Piece::Pawn, promotion: None },
+
+            Move { from: 9,  to: 1, piece: Piece::Pawn, promotion: Some(Piece::Knight) },
+            Move { from: 9,  to: 2, piece: Piece::Pawn, promotion: Some(Piece::Knight) },
+            Move { from: 13, to: 5, piece: Piece::Pawn, promotion: Some(Piece::Knight) },
+            Move { from: 13, to: 4, piece: Piece::Pawn, promotion: Some(Piece::Knight) },
+            Move { from: 14, to: 6, piece: Piece::Pawn, promotion: Some(Piece::Knight) },
+
+            Move { from: 9,  to: 1, piece: Piece::Pawn, promotion: Some(Piece::Bishop) },
+            Move { from: 9,  to: 2, piece: Piece::Pawn, promotion: Some(Piece::Bishop) },
+            Move { from: 13, to: 5, piece: Piece::Pawn, promotion: Some(Piece::Bishop) },
+            Move { from: 13, to: 4, piece: Piece::Pawn, promotion: Some(Piece::Bishop) },
+            Move { from: 14, to: 6, piece: Piece::Pawn, promotion: Some(Piece::Bishop) },
+
+            Move { from: 9,  to: 1, piece: Piece::Pawn, promotion: Some(Piece::Rook) },
+            Move { from: 9,  to: 2, piece: Piece::Pawn, promotion: Some(Piece::Rook) },
+            Move { from: 13, to: 5, piece: Piece::Pawn, promotion: Some(Piece::Rook) },
+            Move { from: 13, to: 4, piece: Piece::Pawn, promotion: Some(Piece::Rook) },
+            Move { from: 14, to: 6, piece: Piece::Pawn, promotion: Some(Piece::Rook) },
+
+            Move { from: 9,  to: 1, piece: Piece::Pawn, promotion: Some(Piece::Queen) },
+            Move { from: 9,  to: 2, piece: Piece::Pawn, promotion: Some(Piece::Queen) },
+            Move { from: 13, to: 5, piece: Piece::Pawn, promotion: Some(Piece::Queen) },
+            Move { from: 13, to: 4, piece: Piece::Pawn, promotion: Some(Piece::Queen) },
+            Move { from: 14, to: 6, piece: Piece::Pawn, promotion: Some(Piece::Queen) }
+        ];
+
+        let moves_set: HashSet<Move> = moves.into_iter().collect();
+        let expected_set: HashSet<Move> = expected.into_iter().collect();
+
+        assert_eq!(moves_set, expected_set);
     }
 }
