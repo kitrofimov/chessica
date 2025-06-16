@@ -58,14 +58,14 @@ const RANK: [u64; 8+1] = [
     0xFF00000000000000, // Rank 8
 ];
 
-const FILE_A: u64 = 0x8080808080808080; // 0b10000000
-const FILE_B: u64 = 0x4040404040404040; // 0b01000000
-const FILE_C: u64 = 0x2020202020202020; // 0b00100000
-const FILE_D: u64 = 0x1010101010101010; // 0b00010000
-const FILE_E: u64 = 0x0808080808080808; // 0b00001000
-const FILE_F: u64 = 0x0404040404040404; // 0b00000100
-const FILE_G: u64 = 0x0202020202020202; // 0b00000010
-const FILE_H: u64 = 0x0101010101010101; // 0b00000001
+const FILE_A: u64 = 0x0101010101010101; // 0b00000001...
+const FILE_B: u64 = 0x0202020202020202; // 0b00000010...
+const FILE_C: u64 = 0x0404040404040404; // 0b00000100...
+const FILE_D: u64 = 0x0808080808080808; // 0b00001000...
+const FILE_E: u64 = 0x1010101010101010; // 0b00010000...
+const FILE_F: u64 = 0x2020202020202020; // 0b00100000...
+const FILE_G: u64 = 0x4040404040404040; // 0b01000000...
+const FILE_H: u64 = 0x8080808080808080; // 0b10000000...
 
 #[derive(Default)]
 struct Bitboards {
@@ -301,8 +301,8 @@ impl Position {
                     9,
                     RANK[2],
                     RANK[8],
-                    !FILE_A,
                     !FILE_H,
+                    !FILE_A,
                 )
             } else {
                 (
@@ -313,8 +313,8 @@ impl Position {
                     -9,
                     RANK[7],
                     RANK[1],
-                    !FILE_H,
                     !FILE_A,
+                    !FILE_H,
                 )
             };
 
