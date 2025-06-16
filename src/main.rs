@@ -10,6 +10,18 @@ fn square_idx_to_string(sq: u8) -> String {
     format!("{}{}", (file + b'a') as char, rank + 1)
 }
 
+fn square_string_to_idx(sq: &str) -> Option<u8> {
+    if sq.len() != 2 {
+        return None;
+    }
+    let file = sq.chars().nth(0).unwrap() as u8 - b'a';
+    let rank = sq.chars().nth(1).unwrap().to_digit(10).unwrap() as u8 - 1;
+    if file > 7 || rank > 7 {
+        return None;
+    }
+    Some(rank * 8 + file)
+}
+
 fn signed_shift(bb: u64, offset: i8) -> u64 {
     if offset >= 0 {
         bb << offset
@@ -88,6 +100,7 @@ struct Move {
     to: u8,
     piece: Piece,
     promotion: Option<Piece>,
+    en_passant: bool,
 }
 
 /// Uses [Little-Endian Rank-File Mapping](https://www.chessprogramming.org/Square_Mapping_Considerations#Little-Endian_Rank-File_Mapping)
@@ -96,6 +109,7 @@ struct Position {
     b: Bitboards,
     occupied: u64,
     whites_turn: bool,
+    en_passant_square: Option<u8>,
 }
 
 impl Default for Position {
@@ -175,6 +189,7 @@ impl Position {
             },
             occupied: 0xFFFF00000000FFFF,
             whites_turn: true,
+            en_passant_square: None,
         }
     }
 
@@ -185,6 +200,11 @@ impl Position {
         let parts: Vec<&str> = fen.split_whitespace().collect();
         let board = parts[0];
         let side_to_move = parts[1];
+        let castling = parts[2];
+        let en_passant_square = match parts[3] {
+            "-" => None,
+            _ => square_string_to_idx(parts[3])
+        };
 
         // Starting from the top-left, 0-indexed [0; 7]
         let mut rank = 7;
@@ -226,30 +246,42 @@ impl Position {
 
         Position {
             w, b, occupied,
-            whites_turn: side_to_move == "w"
+            whites_turn: side_to_move == "w",
+            en_passant_square,
         }
     }
 
-    fn add_pawn_moves(moves: &mut Vec<Move>, to_mask: u64, offset: i8, promotion: bool) {
+    fn add_pawn_moves(moves: &mut Vec<Move>, to_mask: u64, offset: i8, promotion: bool, en_passant: bool) {
         let mut bb = to_mask;
         while bb != 0 {
             let to = pop_lsb(&mut bb) as i8;
             let from = to - offset;
-            if promotion {  // TODO: if inside a loop? slow?
+            // TODO: if inside a loop? too slow?
+            if promotion {
                 for promo in [Piece::Queen, Piece::Rook, Piece::Bishop, Piece::Knight] {
                     moves.push(Move {
                         from: from as u8,
                         to: to as u8,
                         piece: Piece::Pawn,
                         promotion: Some(promo),
+                        en_passant: false,
                     });
                 }
+            } else if en_passant {
+                moves.push(Move {
+                    from: from as u8,
+                    to: to as u8,
+                    piece: Piece::Pawn,
+                    promotion: None,
+                    en_passant: true,
+                });
             } else {
                 moves.push(Move {
                     from: from as u8,
                     to: to as u8,
                     piece: Piece::Pawn,
                     promotion: None,
+                    en_passant: false,
                 });
             }
         }
@@ -257,6 +289,7 @@ impl Position {
 
     fn generate_pseudo_pawn_moves(&self, moves: &mut Vec<Move>) {
         let empty = !self.occupied;
+        let en_passant_bb = self.en_passant_square.map(|sq| 1u64 << sq).unwrap_or(0);
         let (pawns, enemy, left_offset, forward_offset, right_offset,
              start_rank, promo_rank, mask_right, mask_left) =
             if self.whites_turn {
@@ -299,14 +332,21 @@ impl Position {
         let non_promo_left  = left & !promo_rank;
         let non_promo_right = right & !promo_rank;
 
-        Self::add_pawn_moves(moves, non_promo_push, forward_offset, false);
-        Self::add_pawn_moves(moves, double, 2 * forward_offset, false);
-        Self::add_pawn_moves(moves, non_promo_left, left_offset, false);
-        Self::add_pawn_moves(moves, non_promo_right, right_offset, false);
+        // En passant
+        let ep_left = signed_shift(pawns & mask_left, left_offset) & en_passant_bb;
+        let ep_right = signed_shift(pawns & mask_right, right_offset) & en_passant_bb;
 
-        Self::add_pawn_moves(moves, promo_push, forward_offset, true);
-        Self::add_pawn_moves(moves, promo_left, left_offset, true);
-        Self::add_pawn_moves(moves, promo_right, right_offset, true);
+        Self::add_pawn_moves(moves, non_promo_push,  forward_offset,     false, false);
+        Self::add_pawn_moves(moves, double,          2 * forward_offset, false, false);
+        Self::add_pawn_moves(moves, non_promo_left,  left_offset,        false, false);
+        Self::add_pawn_moves(moves, non_promo_right, right_offset,       false, false);
+
+        Self::add_pawn_moves(moves, promo_push,  forward_offset, true, false);
+        Self::add_pawn_moves(moves, promo_left,  left_offset,    true, false);
+        Self::add_pawn_moves(moves, promo_right, right_offset,   true, false);
+
+        Self::add_pawn_moves(moves, ep_left,  left_offset,  false, true);
+        Self::add_pawn_moves(moves, ep_right, right_offset, false, true);
     }
 
     fn generate_pseudo_knight_moves(&self, moves: &mut Vec<Move>) {
@@ -463,22 +503,22 @@ mod tests {
         pos.generate_pseudo_pawn_moves(&mut moves);
 
         let expected = vec![
-            Move { from: 8,  to: 16, piece: Piece::Pawn, promotion: None },
-            Move { from: 9,  to: 17, piece: Piece::Pawn, promotion: None },
-            Move { from: 10, to: 18, piece: Piece::Pawn, promotion: None },
-            Move { from: 11, to: 19, piece: Piece::Pawn, promotion: None },
-            Move { from: 12, to: 20, piece: Piece::Pawn, promotion: None },
-            Move { from: 13, to: 21, piece: Piece::Pawn, promotion: None },
-            Move { from: 14, to: 22, piece: Piece::Pawn, promotion: None },
-            Move { from: 15, to: 23, piece: Piece::Pawn, promotion: None },
-            Move { from: 8,  to: 24, piece: Piece::Pawn, promotion: None },
-            Move { from: 9,  to: 25, piece: Piece::Pawn, promotion: None },
-            Move { from: 10, to: 26, piece: Piece::Pawn, promotion: None },
-            Move { from: 11, to: 27, piece: Piece::Pawn, promotion: None },
-            Move { from: 12, to: 28, piece: Piece::Pawn, promotion: None },
-            Move { from: 13, to: 29, piece: Piece::Pawn, promotion: None },
-            Move { from: 14, to: 30, piece: Piece::Pawn, promotion: None },
-            Move { from: 15, to: 31, piece: Piece::Pawn, promotion: None },
+            Move { from: 8,  to: 16, piece: Piece::Pawn, promotion: None, en_passant: false },
+            Move { from: 9,  to: 17, piece: Piece::Pawn, promotion: None, en_passant: false },
+            Move { from: 10, to: 18, piece: Piece::Pawn, promotion: None, en_passant: false },
+            Move { from: 11, to: 19, piece: Piece::Pawn, promotion: None, en_passant: false },
+            Move { from: 12, to: 20, piece: Piece::Pawn, promotion: None, en_passant: false },
+            Move { from: 13, to: 21, piece: Piece::Pawn, promotion: None, en_passant: false },
+            Move { from: 14, to: 22, piece: Piece::Pawn, promotion: None, en_passant: false },
+            Move { from: 15, to: 23, piece: Piece::Pawn, promotion: None, en_passant: false },
+            Move { from: 8,  to: 24, piece: Piece::Pawn, promotion: None, en_passant: false },
+            Move { from: 9,  to: 25, piece: Piece::Pawn, promotion: None, en_passant: false },
+            Move { from: 10, to: 26, piece: Piece::Pawn, promotion: None, en_passant: false },
+            Move { from: 11, to: 27, piece: Piece::Pawn, promotion: None, en_passant: false },
+            Move { from: 12, to: 28, piece: Piece::Pawn, promotion: None, en_passant: false },
+            Move { from: 13, to: 29, piece: Piece::Pawn, promotion: None, en_passant: false },
+            Move { from: 14, to: 30, piece: Piece::Pawn, promotion: None, en_passant: false },
+            Move { from: 15, to: 31, piece: Piece::Pawn, promotion: None, en_passant: false },
         ];
 
         let moves_set: HashSet<Move> = moves.into_iter().collect();
@@ -494,37 +534,54 @@ mod tests {
         pos.generate_pseudo_pawn_moves(&mut moves);
 
         let expected = vec![
-            Move { from: 48, to: 41, piece: Piece::Pawn, promotion: None },
-            Move { from: 50, to: 41, piece: Piece::Pawn, promotion: None },
-            Move { from: 50, to: 42, piece: Piece::Pawn, promotion: None },
-            Move { from: 50, to: 34, piece: Piece::Pawn, promotion: None },
-            Move { from: 51, to: 43, piece: Piece::Pawn, promotion: None },
-            Move { from: 55, to: 47, piece: Piece::Pawn, promotion: None },
-            Move { from: 55, to: 39, piece: Piece::Pawn, promotion: None },
+            Move { from: 48, to: 41, piece: Piece::Pawn, promotion: None, en_passant: false },
+            Move { from: 50, to: 41, piece: Piece::Pawn, promotion: None, en_passant: false },
+            Move { from: 50, to: 42, piece: Piece::Pawn, promotion: None, en_passant: false },
+            Move { from: 50, to: 34, piece: Piece::Pawn, promotion: None, en_passant: false },
+            Move { from: 51, to: 43, piece: Piece::Pawn, promotion: None, en_passant: false },
+            Move { from: 55, to: 47, piece: Piece::Pawn, promotion: None, en_passant: false },
+            Move { from: 55, to: 39, piece: Piece::Pawn, promotion: None, en_passant: false },
 
-            Move { from: 9,  to: 1, piece: Piece::Pawn, promotion: Some(Piece::Knight) },
-            Move { from: 9,  to: 2, piece: Piece::Pawn, promotion: Some(Piece::Knight) },
-            Move { from: 13, to: 5, piece: Piece::Pawn, promotion: Some(Piece::Knight) },
-            Move { from: 13, to: 4, piece: Piece::Pawn, promotion: Some(Piece::Knight) },
-            Move { from: 14, to: 6, piece: Piece::Pawn, promotion: Some(Piece::Knight) },
+            Move { from: 9,  to: 1, piece: Piece::Pawn, promotion: Some(Piece::Knight), en_passant: false },
+            Move { from: 9,  to: 2, piece: Piece::Pawn, promotion: Some(Piece::Knight), en_passant: false },
+            Move { from: 13, to: 5, piece: Piece::Pawn, promotion: Some(Piece::Knight), en_passant: false },
+            Move { from: 13, to: 4, piece: Piece::Pawn, promotion: Some(Piece::Knight), en_passant: false },
+            Move { from: 14, to: 6, piece: Piece::Pawn, promotion: Some(Piece::Knight), en_passant: false },
 
-            Move { from: 9,  to: 1, piece: Piece::Pawn, promotion: Some(Piece::Bishop) },
-            Move { from: 9,  to: 2, piece: Piece::Pawn, promotion: Some(Piece::Bishop) },
-            Move { from: 13, to: 5, piece: Piece::Pawn, promotion: Some(Piece::Bishop) },
-            Move { from: 13, to: 4, piece: Piece::Pawn, promotion: Some(Piece::Bishop) },
-            Move { from: 14, to: 6, piece: Piece::Pawn, promotion: Some(Piece::Bishop) },
+            Move { from: 9,  to: 1, piece: Piece::Pawn, promotion: Some(Piece::Bishop), en_passant: false },
+            Move { from: 9,  to: 2, piece: Piece::Pawn, promotion: Some(Piece::Bishop), en_passant: false },
+            Move { from: 13, to: 5, piece: Piece::Pawn, promotion: Some(Piece::Bishop), en_passant: false },
+            Move { from: 13, to: 4, piece: Piece::Pawn, promotion: Some(Piece::Bishop), en_passant: false },
+            Move { from: 14, to: 6, piece: Piece::Pawn, promotion: Some(Piece::Bishop), en_passant: false },
 
-            Move { from: 9,  to: 1, piece: Piece::Pawn, promotion: Some(Piece::Rook) },
-            Move { from: 9,  to: 2, piece: Piece::Pawn, promotion: Some(Piece::Rook) },
-            Move { from: 13, to: 5, piece: Piece::Pawn, promotion: Some(Piece::Rook) },
-            Move { from: 13, to: 4, piece: Piece::Pawn, promotion: Some(Piece::Rook) },
-            Move { from: 14, to: 6, piece: Piece::Pawn, promotion: Some(Piece::Rook) },
+            Move { from: 9,  to: 1, piece: Piece::Pawn, promotion: Some(Piece::Rook), en_passant: false },
+            Move { from: 9,  to: 2, piece: Piece::Pawn, promotion: Some(Piece::Rook), en_passant: false },
+            Move { from: 13, to: 5, piece: Piece::Pawn, promotion: Some(Piece::Rook), en_passant: false },
+            Move { from: 13, to: 4, piece: Piece::Pawn, promotion: Some(Piece::Rook), en_passant: false },
+            Move { from: 14, to: 6, piece: Piece::Pawn, promotion: Some(Piece::Rook), en_passant: false },
 
-            Move { from: 9,  to: 1, piece: Piece::Pawn, promotion: Some(Piece::Queen) },
-            Move { from: 9,  to: 2, piece: Piece::Pawn, promotion: Some(Piece::Queen) },
-            Move { from: 13, to: 5, piece: Piece::Pawn, promotion: Some(Piece::Queen) },
-            Move { from: 13, to: 4, piece: Piece::Pawn, promotion: Some(Piece::Queen) },
-            Move { from: 14, to: 6, piece: Piece::Pawn, promotion: Some(Piece::Queen) }
+            Move { from: 9,  to: 1, piece: Piece::Pawn, promotion: Some(Piece::Queen), en_passant: false },
+            Move { from: 9,  to: 2, piece: Piece::Pawn, promotion: Some(Piece::Queen), en_passant: false },
+            Move { from: 13, to: 5, piece: Piece::Pawn, promotion: Some(Piece::Queen), en_passant: false },
+            Move { from: 13, to: 4, piece: Piece::Pawn, promotion: Some(Piece::Queen), en_passant: false },
+            Move { from: 14, to: 6, piece: Piece::Pawn, promotion: Some(Piece::Queen), en_passant: false }
+        ];
+
+        let moves_set: HashSet<Move> = moves.into_iter().collect();
+        let expected_set: HashSet<Move> = expected.into_iter().collect();
+
+        assert_eq!(moves_set, expected_set);
+    }
+
+    #[test]
+    fn pseudo_pawn_moves_en_passant() {
+        let pos = Position::from_fen("8/6k1/8/1pP5/8/8/5K2/8 w - b6 0 1");
+        let mut moves = Vec::new();
+        pos.generate_pseudo_pawn_moves(&mut moves);
+
+        let expected = vec![
+            Move { from: 34, to: 42, piece: Piece::Pawn, promotion: None, en_passant: false },
+            Move { from: 34, to: 41, piece: Piece::Pawn, promotion: None, en_passant: true },
         ];
 
         let moves_set: HashSet<Move> = moves.into_iter().collect();
