@@ -46,6 +46,34 @@ fn print_bitboard(bb: u64) {
     println!("  a b c d e f g h");
 }
 
+const fn generate_knight_attack(square: u8) -> u64 {
+    let bb = 1u64 << square;
+
+    let no_ab = bb & !(FILE_A | FILE_B);
+    let no_gh = bb & !(FILE_G | FILE_H);
+    let no_12 = bb & !(RANK[1] | RANK[2]);
+    let no_78 = bb & !(RANK[7] | RANK[8]);
+
+    ((no_ab & !RANK[8]) << 6)  | // move left-left-up
+    ((no_ab & !RANK[1]) >> 10) | // move left-left-down
+    ((no_gh & !RANK[8]) << 10) | // move right-right-up
+    ((no_gh & !RANK[1]) >> 6)  | // move right-right-down
+    ((no_12 & !FILE_H) >> 15) | // move right-down-down
+    ((no_12 & !FILE_A) >> 17) | // move left-down-down
+    ((no_78 & !FILE_H) << 17) | // move right-up-up
+    ((no_78 & !FILE_A) << 15)   // move left-up-up
+}
+
+static KNIGHT_ATTACKS: [u64; 64] = {
+    let mut table = [0u64; 64];
+    let mut i = 0;
+    while i < 64 {
+        table[i] = generate_knight_attack(i as u8);
+        i += 1;
+    }
+    table
+};
+
 const RANK: [u64; 8+1] = [
     0,                  // Rank 0 (unused, for convenience)
     0x00000000000000FF, // Rank 1
@@ -350,7 +378,26 @@ impl Position {
     }
 
     fn generate_pseudo_knight_moves(&self, moves: &mut Vec<Move>) {
-        unimplemented!();
+        let (mut knights, friendly) = if self.whites_turn {
+            (self.w.knights, self.w.all)
+        } else {
+            (self.b.knights, self.b.all)
+        };
+
+        while knights != 0 {
+            let from = pop_lsb(&mut knights);
+            let mut attacks = KNIGHT_ATTACKS[from as usize] & !friendly;
+            while attacks != 0 {
+                let to = pop_lsb(&mut attacks);
+                moves.push(Move {
+                    from: from as u8,
+                    to: to as u8,
+                    piece: Piece::Knight,
+                    promotion: None,
+                    en_passant: false,
+                });
+            }
+        }
     }
 
     fn generate_pseudo_bishop_moves(&self, moves: &mut Vec<Move>) {
@@ -372,7 +419,7 @@ impl Position {
     fn generate_pseudo_moves(&self) -> Vec<Move> {
         let mut moves = Vec::new();
         self.generate_pseudo_pawn_moves  (&mut moves);
-        // self.generate_pseudo_knight_moves(&mut moves);
+        self.generate_pseudo_knight_moves(&mut moves);
         // self.generate_pseudo_bishop_moves(&mut moves);
         // self.generate_pseudo_rook_moves  (&mut moves);
         // self.generate_pseudo_queen_moves (&mut moves);
@@ -578,6 +625,81 @@ mod tests {
         let expected: HashSet<Move> = [
             Move { from: 34, to: 42, piece: Piece::Pawn, promotion: None, en_passant: false },
             Move { from: 34, to: 41, piece: Piece::Pawn, promotion: None, en_passant: true },
+        ].into();
+
+        let moves_set: HashSet<Move> = moves.into_iter().collect();
+        assert_eq!(moves_set, expected);
+    }
+
+    #[test]
+    fn knight_attack_table() {
+        // Array of squares -> bitboard
+        let f = |lst: &[u8]| lst.iter().fold(0u64, |s, &a| s | (1 << a));
+
+        // See https://www.chessprogramming.org/File:Lerf.JPG
+        assert_eq!(KNIGHT_ATTACKS[0],  f(&[10, 17]));
+        assert_eq!(KNIGHT_ATTACKS[1],  f(&[11, 16, 18]));
+        assert_eq!(KNIGHT_ATTACKS[6],  f(&[12, 21, 23]));
+        assert_eq!(KNIGHT_ATTACKS[7],  f(&[13, 22]));
+        assert_eq!(KNIGHT_ATTACKS[8],  f(&[2, 18, 25]));
+        assert_eq!(KNIGHT_ATTACKS[11], f(&[1, 5, 17, 21, 26, 28]));
+        assert_eq!(KNIGHT_ATTACKS[15], f(&[5, 21, 30]));
+        assert_eq!(KNIGHT_ATTACKS[25], f(&[8, 10, 19, 35, 40, 42]));
+        assert_eq!(KNIGHT_ATTACKS[36], f(&[19, 21, 26, 30, 42, 46, 51, 53]));
+        assert_eq!(KNIGHT_ATTACKS[48], f(&[33, 42, 58]));
+        assert_eq!(KNIGHT_ATTACKS[55], f(&[38, 45, 61]));
+        assert_eq!(KNIGHT_ATTACKS[56], f(&[41, 50]));
+        assert_eq!(KNIGHT_ATTACKS[57], f(&[40, 42, 51]));
+        assert_eq!(KNIGHT_ATTACKS[62], f(&[45, 47, 52]));
+        assert_eq!(KNIGHT_ATTACKS[63], f(&[46, 53]));
+    }
+
+    #[test]
+    fn pseudo_knight_moves_start_position() {
+        let pos = Position::start();
+        let mut moves = Vec::new();
+        pos.generate_pseudo_knight_moves(&mut moves);
+
+        let expected: HashSet<Move> = [
+            Move { from: 1, to: 16, piece: Piece::Knight, promotion: None, en_passant: false },
+            Move { from: 1, to: 18, piece: Piece::Knight, promotion: None, en_passant: false },
+            Move { from: 6, to: 21, piece: Piece::Knight, promotion: None, en_passant: false },
+            Move { from: 6, to: 23, piece: Piece::Knight, promotion: None, en_passant: false },
+        ].into();
+
+        let moves_set: HashSet<Move> = moves.into_iter().collect();
+        assert_eq!(moves_set, expected);
+    }
+
+    #[test]
+    fn pseudo_knight_moves_endgame() {
+        let pos = Position::from_fen("8/3nk3/1N3R2/3n2n1/3N4/8/3K1N2/1r6 w - - 0 1");
+        let mut moves = Vec::new();
+        pos.generate_pseudo_knight_moves(&mut moves);
+
+        let expected: HashSet<Move> = [
+            Move { from: 13, to:  3, piece: Piece::Knight, promotion: None, en_passant: false },
+            Move { from: 13, to:  7, piece: Piece::Knight, promotion: None, en_passant: false },
+            Move { from: 13, to: 19, piece: Piece::Knight, promotion: None, en_passant: false },
+            Move { from: 13, to: 23, piece: Piece::Knight, promotion: None, en_passant: false },
+            Move { from: 13, to: 28, piece: Piece::Knight, promotion: None, en_passant: false },
+            Move { from: 13, to: 30, piece: Piece::Knight, promotion: None, en_passant: false },
+
+            Move { from: 27, to: 10, piece: Piece::Knight, promotion: None, en_passant: false },
+            Move { from: 27, to: 12, piece: Piece::Knight, promotion: None, en_passant: false },
+            Move { from: 27, to: 17, piece: Piece::Knight, promotion: None, en_passant: false },
+            Move { from: 27, to: 21, piece: Piece::Knight, promotion: None, en_passant: false },
+            Move { from: 27, to: 33, piece: Piece::Knight, promotion: None, en_passant: false },
+            Move { from: 27, to: 37, piece: Piece::Knight, promotion: None, en_passant: false },
+            Move { from: 27, to: 42, piece: Piece::Knight, promotion: None, en_passant: false },
+            Move { from: 27, to: 44, piece: Piece::Knight, promotion: None, en_passant: false },
+
+            Move { from: 41, to: 24, piece: Piece::Knight, promotion: None, en_passant: false },
+            Move { from: 41, to: 26, piece: Piece::Knight, promotion: None, en_passant: false },
+            Move { from: 41, to: 35, piece: Piece::Knight, promotion: None, en_passant: false },
+            Move { from: 41, to: 51, piece: Piece::Knight, promotion: None, en_passant: false },
+            Move { from: 41, to: 56, piece: Piece::Knight, promotion: None, en_passant: false },
+            Move { from: 41, to: 58, piece: Piece::Knight, promotion: None, en_passant: false },
         ].into();
 
         let moves_set: HashSet<Move> = moves.into_iter().collect();
