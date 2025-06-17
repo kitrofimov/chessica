@@ -3,16 +3,11 @@ Hobby-level, bitboard-representation chess engine
 
 ## Building
 
-When building for the first time:
 ```bash
 git clone https://github.com/kitrofimov/chess-engine
 cd chess-engine
-make
-cargo test
-cargo run --bin chess-engine
+cargo build
 ```
-
-When re-building, normal `cargo build` is possible.
 
 ## Acknowledgements
 - [Magic Move-Bitboard Generation in Computer Chess](http://pradu.us/old/Nov27_2008/Buzz/research/magic/Bitboards.pdf) by Pradyumna Kannan
