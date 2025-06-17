@@ -169,3 +169,77 @@ pub const FILE: [u64; 8+1] = [
     FILE_A, FILE_B, FILE_C, FILE_D,
     FILE_E, FILE_F, FILE_G, FILE_H,
 ];
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // List of squares to bitboard
+    fn sq_to_bb(lst: &[u8]) -> u64 {
+        lst.iter().fold(0u64, |s, &a| s | bit(a.into()))
+    }
+
+    #[test]
+    fn knight_attack_table() {
+        // See https://www.chessprogramming.org/File:Lerf.JPG
+        assert_eq!(KNIGHT_ATTACKS[0],  sq_to_bb(&[10, 17]));
+        assert_eq!(KNIGHT_ATTACKS[1],  sq_to_bb(&[11, 16, 18]));
+        assert_eq!(KNIGHT_ATTACKS[8],  sq_to_bb(&[2, 18, 25]));
+
+        assert_eq!(KNIGHT_ATTACKS[6],  sq_to_bb(&[12, 21, 23]));
+        assert_eq!(KNIGHT_ATTACKS[7],  sq_to_bb(&[13, 22]));
+        assert_eq!(KNIGHT_ATTACKS[15], sq_to_bb(&[5, 21, 30]));
+
+        assert_eq!(KNIGHT_ATTACKS[48], sq_to_bb(&[33, 42, 58]));
+        assert_eq!(KNIGHT_ATTACKS[56], sq_to_bb(&[41, 50]));
+        assert_eq!(KNIGHT_ATTACKS[57], sq_to_bb(&[40, 42, 51]));
+
+        assert_eq!(KNIGHT_ATTACKS[55], sq_to_bb(&[38, 45, 61]));
+        assert_eq!(KNIGHT_ATTACKS[62], sq_to_bb(&[45, 47, 52]));
+        assert_eq!(KNIGHT_ATTACKS[63], sq_to_bb(&[46, 53]));
+
+        assert_eq!(KNIGHT_ATTACKS[11], sq_to_bb(&[1, 5, 17, 21, 26, 28]));
+        assert_eq!(KNIGHT_ATTACKS[25], sq_to_bb(&[8, 10, 19, 35, 40, 42]));
+        assert_eq!(KNIGHT_ATTACKS[36], sq_to_bb(&[19, 21, 26, 30, 42, 46, 51, 53]));
+    }
+
+    #[test]
+    fn king_attack_table() {
+        // See https://www.chessprogramming.org/File:Lerf.JPG
+        assert_eq!(KING_ATTACKS[0],  sq_to_bb(&[1, 8, 9]));
+        assert_eq!(KING_ATTACKS[7],  sq_to_bb(&[6, 14, 15])); 
+        assert_eq!(KING_ATTACKS[56], sq_to_bb(&[48, 49, 57]));
+        assert_eq!(KING_ATTACKS[63], sq_to_bb(&[54, 55, 62]));
+
+        assert_eq!(KING_ATTACKS[3],  sq_to_bb(&[2, 4, 10, 11, 12]));
+        assert_eq!(KING_ATTACKS[16], sq_to_bb(&[8, 9, 17, 24, 25]));
+        assert_eq!(KING_ATTACKS[39], sq_to_bb(&[30, 31, 38, 46, 47]));
+        assert_eq!(KING_ATTACKS[58], sq_to_bb(&[49, 50, 51, 57, 59]));
+
+        assert_eq!(KING_ATTACKS[42], sq_to_bb(&[33, 34, 35, 41, 43, 49, 50, 51]));
+        assert_eq!(KING_ATTACKS[19], sq_to_bb(&[10, 11, 12, 18, 20, 26, 27, 28]));
+    }
+
+    #[test]
+    fn rook_masks() {
+        assert_eq!(ROOK_MASKS[0],  (FILE_A | RANK[1]) & !sq_to_bb(&[0, 7, 56]));
+        assert_eq!(ROOK_MASKS[3],  (FILE_D | RANK[1]) & !sq_to_bb(&[3, 0, 7, 59]));
+        assert_eq!(ROOK_MASKS[9],  (FILE_B | RANK[2]) & !sq_to_bb(&[9, 8, 15, 1, 57]));
+        assert_eq!(ROOK_MASKS[19], (FILE_D | RANK[3]) & !sq_to_bb(&[19, 16, 23, 3, 59]));
+        assert_eq!(ROOK_MASKS[24], (FILE_A | RANK[4]) & !sq_to_bb(&[24, 0, 56, 31]));
+        assert_eq!(ROOK_MASKS[38], (FILE_G | RANK[5]) & !sq_to_bb(&[38, 32, 39, 6, 62]));
+        assert_eq!(ROOK_MASKS[55], (FILE_H | RANK[7]) & !sq_to_bb(&[55, 48, 7, 63]));
+    }
+
+    #[test]
+    fn bishop_masks() {
+        assert_eq!(BISHOP_MASKS[0],  sq_to_bb(&[9, 18, 27, 36, 45, 54]));
+        assert_eq!(BISHOP_MASKS[3],  sq_to_bb(&[10, 17, 12, 21, 30]));
+        assert_eq!(BISHOP_MASKS[13], sq_to_bb(&[20, 27, 34, 41, 22]));
+        assert_eq!(BISHOP_MASKS[24], sq_to_bb(&[17, 10, 33, 42, 51]));
+        assert_eq!(BISHOP_MASKS[38], sq_to_bb(&[29, 20, 11, 45, 52]));
+        assert_eq!(BISHOP_MASKS[55], sq_to_bb(&[46, 37, 28, 19, 10]));
+        assert_eq!(BISHOP_MASKS[56], sq_to_bb(&[49, 42, 35, 28, 21, 14]));
+    }
+}

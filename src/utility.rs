@@ -49,3 +49,38 @@ pub fn print_bitboard(bb: u64) {
     }
     println!("  a b c d e f g h");
 }
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn pop_lsb_test() {
+        let mut bb = 0b101010;
+        assert_eq!(pop_lsb(&mut bb), 1);
+        assert_eq!(bb, 0b101000);
+        assert_eq!(pop_lsb(&mut bb), 3);
+        assert_eq!(bb, 0b100000);
+        assert_eq!(pop_lsb(&mut bb), 5);
+        assert_eq!(bb, 0b000000);
+    }
+
+    #[test]
+    fn square_idx_to_string_test() {
+        assert_eq!(square_idx_to_string(0), "a1");
+        assert_eq!(square_idx_to_string(7), "h1");
+        assert_eq!(square_idx_to_string(56), "a8");
+        assert_eq!(square_idx_to_string(63), "h8");
+        assert_eq!(square_idx_to_string(27), "d4");
+    }
+
+    #[test]
+    fn signed_shift_test() {
+        assert_eq!(signed_shift(0b01100001, 1), 0b11000010);
+        assert_eq!(signed_shift(0b01100001, -1), 0b00110000);
+        assert_eq!(signed_shift(0b00000010, 2), 0b00001000);
+        assert_eq!(signed_shift(0b00001000, -2), 0b00000010);
+        assert_eq!(signed_shift(0b10000000, -7), 0b00000001);
+    }
+}
