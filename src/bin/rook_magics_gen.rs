@@ -1,0 +1,167 @@
+use std::{fs::File, io::BufWriter};
+use std::io::Write;
+use rand::Rng;
+use chess_engine::constants::ROOK_MASKS;
+
+fn bit(sq: usize) -> u64 {
+    1u64 << sq
+}
+
+fn n_bits_set(mut x: u64) -> u8 {
+    let mut c = 0;
+    while x != 0 {
+        x &= x - 1;
+        c += 1;
+    }
+    c
+}
+
+fn bitscan(x: u64) -> Vec<usize> {
+    let mut x = x;
+    let mut bits = Vec::new();
+    while x != 0 {
+        let ls1b = x & x.wrapping_neg();
+        bits.push(ls1b.trailing_zeros() as usize);
+        x &= x - 1;
+    }
+    bits
+}
+
+fn rook_attacks(square: usize, blockers: u64) -> u64 {
+    let rank = square / 8;
+    let file = square % 8;
+    let mut attacks = 0u64;
+
+    for i in (rank + 1)..8 {
+        let sq = i * 8 + file;
+        attacks |= bit(sq);
+        if blockers & bit(sq) != 0 { break; }
+    }
+
+    for i in (0..rank).rev() {
+        let sq = i * 8 + file;
+        attacks |= bit(sq);
+        if blockers & bit(sq) != 0 { break; }
+    }
+
+    for i in (file + 1)..8 {
+        let sq = rank * 8 + i;
+        attacks |= bit(sq);
+        if blockers & bit(sq) != 0 { break; }
+    }
+
+    for i in (0..file).rev() {
+        let sq = rank * 8 + i;
+        attacks |= bit(sq);
+        if blockers & bit(sq) != 0 { break; }
+    }
+
+    attacks
+}
+
+fn generate_blocker_variations(mask: u64) -> Vec<u64> {
+    let bits = bitscan(mask);
+    let n = bits.len();
+    let mut result = Vec::new();
+
+    for i in 0..(1 << n) {
+        let mut blockers = 0u64;
+        for j in 0..n {
+            if (i & (1 << j)) != 0 {
+                blockers |= bit(bits[j]);
+            }
+        }
+        result.push(blockers);
+    }
+
+    result
+}
+
+fn random_magic_candidate() -> u64 {
+    let mut rng = rand::rng();
+    rng.random::<u64>() & rng.random::<u64>() & rng.random::<u64>()
+}
+
+fn find_magic(square: usize, mask: u64, shift: u8) -> (u64, Vec<u64>) {
+    let variations = generate_blocker_variations(mask);
+    let attacks: Vec<u64> = variations.iter()
+        .map(|&blockers| rook_attacks(square, blockers))
+        .collect();
+
+    const PLACEHOLDER: u64 = 0xFFFF_FFFF_FFFF_FFFF;
+    let mut table = vec![PLACEHOLDER; 1 << (64 - shift)];
+
+    'outer: for _ in 0..1_000_000 {
+        let magic = random_magic_candidate();
+
+        for (i, &blockers) in variations.iter().enumerate() {
+            let index = (((blockers.wrapping_mul(magic))) >> shift) as usize;
+            if table[index] != attacks[i] && table[index] != PLACEHOLDER {  // collision
+                table.fill(PLACEHOLDER);
+                continue 'outer;
+            } else {
+                table[index] = attacks[i];
+            }
+        }
+        return (magic, table);
+    }
+    panic!("Failed to find magic for square {}", square);
+}
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let mut magics = Vec::new();
+    let mut shifts = Vec::new();
+    let mut tables = Vec::new();
+    for sq in 0..64 {
+        let mask = ROOK_MASKS[sq];
+        let bits = n_bits_set(mask);
+        let shift = 64 - bits;
+        let (magic, table) = find_magic(sq, mask, shift);
+        magics.push(magic);
+        shifts.push(shift);
+        tables.push(table);
+        println!("{}/64", sq+1);
+    }
+
+    println!("{:?}", tables.len());
+    for i in 0..64 {
+        println!("Square {}: Magic = 0x{:016x}, Shift = {}, Table size = {}", i, magics[i], shifts[i], tables[i].len());
+    }
+
+    let file = File::create("src/constants/rook_magics.rs").expect("Failed to create file");
+    let mut writer = BufWriter::new(file);
+
+    writeln!(writer, "pub static ROOK_MAGICS: [u64; 64] = [")?;
+    for magic in &magics {
+        writeln!(writer, "    0x{:016x},", magic)?;
+    }
+    writeln!(writer, "];\n")?;
+
+    writeln!(writer, "pub static ROOK_MAGICS_SHIFT: [u64; 64] = [")?;
+    for shift in &shifts {
+        writeln!(writer, "    {},", shift)?;
+    }
+    writeln!(writer, "];\n")?;
+
+    let max_index_size = 64 - shifts.iter().min().unwrap();
+    let table_size = 1 << max_index_size;
+    writeln!(writer, "pub static ROOK_ATTACK_TABLES: [[u64; 1 << {}]; 64] = [", max_index_size)?;
+    for table in &tables {
+        writeln!(writer, "    [")?;
+        let mut i = 0;
+        for attack in table {
+            writeln!(writer, "        0x{:016x},", attack)?;
+            i += 1;
+        }
+        if i < table_size {
+            for _ in i..table_size {
+                writeln!(writer, "        0,")?;
+            }
+        }
+        writeln!(writer, "    ],")?;
+    }
+    writeln!(writer, "];")?;
+
+    println!("Done!");
+    Ok(())
+}

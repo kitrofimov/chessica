@@ -1,127 +1,5 @@
-fn pop_lsb(bitboard: &mut u64) -> u8 {
-    let result = bitboard.trailing_zeros() as u8;
-    *bitboard &= *bitboard - 1;
-    result
-}
-
-fn square_idx_to_string(sq: u8) -> String {
-    let file = (sq % 8) as u8;
-    let rank = (sq / 8) as u8;
-    format!("{}{}", (file + b'a') as char, rank + 1)
-}
-
-fn square_string_to_idx(sq: &str) -> Option<u8> {
-    if sq.len() != 2 {
-        return None;
-    }
-    let file = sq.chars().nth(0).unwrap() as u8 - b'a';
-    let rank = sq.chars().nth(1).unwrap().to_digit(10).unwrap() as u8 - 1;
-    if file > 7 || rank > 7 {
-        return None;
-    }
-    Some(rank * 8 + file)
-}
-
-fn signed_shift(bb: u64, offset: i8) -> u64 {
-    if offset >= 0 {
-        bb << offset
-    } else {
-        bb >> (-offset)
-    }
-}
-
-fn print_bitboard(bb: u64) {
-    for rank in (0..8).rev() {
-        print!("{} ", rank + 1);
-        for file in 0..8 {
-            let square = 1u64 << (rank * 8 + file);
-            if bb & square != 0 {
-                print!("+ ")
-            } else {
-                print!(". ")
-            }
-        }
-        println!();
-    }
-    println!("  a b c d e f g h");
-}
-
-const fn generate_knight_attack(square: u8) -> u64 {
-    let bb = 1u64 << square;
-
-    let no_ab = bb & !(FILE_A | FILE_B);
-    let no_gh = bb & !(FILE_G | FILE_H);
-    let no_12 = bb & !(RANK[1] | RANK[2]);
-    let no_78 = bb & !(RANK[7] | RANK[8]);
-
-    ((no_ab & !RANK[8]) << 6)  | // left-left-up
-    ((no_ab & !RANK[1]) >> 10) | // left-left-down
-    ((no_gh & !RANK[8]) << 10) | // right-right-up
-    ((no_gh & !RANK[1]) >> 6)  | // right-right-down
-    ((no_12 & !FILE_H) >> 15)  | // right-down-down
-    ((no_12 & !FILE_A) >> 17)  | // left-down-down
-    ((no_78 & !FILE_H) << 17)  | // right-up-up
-    ((no_78 & !FILE_A) << 15)    // left-up-up
-}
-
-const fn generate_king_attack(square: u8) -> u64 {
-    let bb = 1u64 << square;
-
-    let no_a = bb & !FILE_A;
-    let no_h = bb & !FILE_H;
-    let no_1 = bb & !RANK[1];
-    let no_8 = bb & !RANK[8];
-
-    (no_a >> 1)        | // right
-    (no_h << 1)        | // left
-    (no_1 >> 8)        | // down
-    (no_8 << 8)        | // up
-    (no_a & no_8) << 7 | // up-left
-    (no_h & no_8) << 9 | // up-right
-    (no_a & no_1) >> 9 | // down-left
-    (no_h & no_1) >> 7   // down-right
-}
-
-static KNIGHT_ATTACKS: [u64; 64] = {
-    let mut table = [0u64; 64];
-    let mut i = 0;
-    while i < 64 {
-        table[i] = generate_knight_attack(i as u8);
-        i += 1;
-    }
-    table
-};
-
-static KING_ATTACKS: [u64; 64] = {
-    let mut table = [0u64; 64];
-    let mut i = 0;
-    while i < 64 {
-        table[i] = generate_king_attack(i as u8);
-        i += 1;
-    }
-    table
-};
-
-const RANK: [u64; 8+1] = [
-    0,                  // Rank 0 (unused, for convenience)
-    0x00000000000000FF, // Rank 1
-    0x000000000000FF00, // Rank 2
-    0x0000000000FF0000, // Rank 3
-    0x00000000FF000000, // Rank 4
-    0x000000FF00000000, // Rank 5
-    0x0000FF0000000000, // Rank 6
-    0x00FF000000000000, // Rank 7
-    0xFF00000000000000, // Rank 8
-];
-
-const FILE_A: u64 = 0x0101010101010101; // 0b00000001...
-const FILE_B: u64 = 0x0202020202020202; // 0b00000010...
-const FILE_C: u64 = 0x0404040404040404; // 0b00000100...
-const FILE_D: u64 = 0x0808080808080808; // 0b00001000...
-const FILE_E: u64 = 0x1010101010101010; // 0b00010000...
-const FILE_F: u64 = 0x2020202020202020; // 0b00100000...
-const FILE_G: u64 = 0x4040404040404040; // 0b01000000...
-const FILE_H: u64 = 0x8080808080808080; // 0b10000000...
+use chess_engine::constants::*;
+use chess_engine::utility::*;
 
 #[derive(Default)]
 struct Bitboards {
@@ -429,15 +307,99 @@ impl Position {
     }
 
     fn generate_pseudo_bishop_moves(&self, moves: &mut Vec<Move>) {
-        unimplemented!();
+        let (mut bishops, friendly) = if self.whites_turn {
+            (self.w.bishops, self.w.all)
+        } else {
+            (self.b.bishops, self.b.all)
+        };
+
+        while bishops != 0 {
+            let from = pop_lsb(&mut bishops) as usize;
+            let mask = BISHOP_MASKS[from];
+            let magic = BISHOP_MAGICS[from];
+            let shift = BISHOP_MAGICS_SHIFT[from];
+            let blockers = self.occupied & mask;
+            let hash = (blockers.wrapping_mul(magic) >> shift) as usize;
+            let mut attacks = BISHOP_ATTACK_TABLES[from][hash] & !friendly;
+            while attacks != 0 {
+                let to = pop_lsb(&mut attacks);
+                println!("{}", to);
+                moves.push(Move {
+                    from: from as u8,
+                    to: to as u8,
+                    piece: Piece::Bishop,
+                    promotion: None,
+                    en_passant: false,
+                });
+            }
+        }
     }
 
     fn generate_pseudo_rook_moves(&self, moves: &mut Vec<Move>) {
-        unimplemented!();
+        let (mut rooks, friendly) = if self.whites_turn {
+            (self.w.rooks, self.w.all)
+        } else {
+            (self.b.rooks, self.b.all)
+        };
+
+        while rooks != 0 {
+            let from = pop_lsb(&mut rooks) as usize;
+            let mask = ROOK_MASKS[from];
+            let magic = ROOK_MAGICS[from];
+            let shift = ROOK_MAGICS_SHIFT[from];
+            let blockers = self.occupied & mask;
+            let hash = (blockers.wrapping_mul(magic) >> shift) as usize;
+            let mut attacks = ROOK_ATTACK_TABLES[from][hash] & !friendly;
+            while attacks != 0 {
+                let to = pop_lsb(&mut attacks);
+                moves.push(Move {
+                    from: from as u8,
+                    to: to as u8,
+                    piece: Piece::Rook,
+                    promotion: None,
+                    en_passant: false,
+                });
+            }
+        }
     }
 
     fn generate_pseudo_queen_moves(&self, moves: &mut Vec<Move>) {
-        unimplemented!();
+        let (mut queens, friendly) = if self.whites_turn {
+            (self.w.queens, self.w.all)
+        } else {
+            (self.b.queens, self.b.all)
+        };
+
+        while queens != 0 {
+            let from = pop_lsb(&mut queens) as usize;
+
+            let mask = ROOK_MASKS[from];
+            let blockers = self.occupied & mask;
+            let magic = ROOK_MAGICS[from];
+            let shift = ROOK_MAGICS_SHIFT[from];
+            let hash = (blockers.wrapping_mul(magic) >> shift) as usize;
+            let rook_attacks = ROOK_ATTACK_TABLES[from][hash] & !friendly;
+
+            let mask = BISHOP_MASKS[from];
+            let blockers = self.occupied & mask;
+            let magic = BISHOP_MAGICS[from];
+            let shift = BISHOP_MAGICS_SHIFT[from];
+            let hash = (blockers.wrapping_mul(magic) >> shift) as usize;
+            let bishop_attacks = BISHOP_ATTACK_TABLES[from][hash] & !friendly;
+
+            let mut attacks = rook_attacks | bishop_attacks;
+
+            while attacks != 0 {
+                let to = pop_lsb(&mut attacks);
+                moves.push(Move {
+                    from: from as u8,
+                    to: to as u8,
+                    piece: Piece::Queen,
+                    promotion: None,
+                    en_passant: false,
+                });
+            }
+        }
     }
 
     fn generate_pseudo_king_moves(&self, moves: &mut Vec<Move>) {
@@ -467,9 +429,9 @@ impl Position {
         let mut moves = Vec::new();
         self.generate_pseudo_pawn_moves  (&mut moves);
         self.generate_pseudo_knight_moves(&mut moves);
-        // self.generate_pseudo_bishop_moves(&mut moves);
-        // self.generate_pseudo_rook_moves  (&mut moves);
-        // self.generate_pseudo_queen_moves (&mut moves);
+        self.generate_pseudo_bishop_moves(&mut moves);
+        self.generate_pseudo_rook_moves  (&mut moves);
+        self.generate_pseudo_queen_moves (&mut moves);
         self.generate_pseudo_king_moves  (&mut moves);
         moves
     }
@@ -483,7 +445,8 @@ fn main() {
     let moves = pos.generate_pseudo_moves();
     for m in moves {
         println!(
-            "Move: {} to {}",
+            "Move: {:?} {} to {}",
+            m.piece,
             square_idx_to_string(m.from),
             square_idx_to_string(m.to)
         );
@@ -497,7 +460,7 @@ mod tests {
     use std::collections::HashSet;
 
     fn sq_to_bb(lst: &[u8]) -> u64 {
-        lst.iter().fold(0u64, |s, &a| s | (1 << a))
+        lst.iter().fold(0u64, |s, &a| s | bit(a.into()))
     }
 
     #[test]
@@ -546,22 +509,22 @@ mod tests {
     fn fen_endgame() {
         let pos = Position::from_fen("4r3/2n5/8/6R1/3k4/8/1B6/4K3 w - - 0 1");
         assert_eq!(pos.w.pawns,   0x0);
-        assert_eq!(pos.w.rooks,   1 << 38);
+        assert_eq!(pos.w.rooks,   bit(38));
         assert_eq!(pos.w.knights, 0x0);
-        assert_eq!(pos.w.bishops, 1 << 9);
+        assert_eq!(pos.w.bishops, bit(9));
         assert_eq!(pos.w.queens,  0x0);
-        assert_eq!(pos.w.king,    1 << 4);
-        assert_eq!(pos.w.all,     (1 << 4) | (1 << 9) | (1 << 38));
+        assert_eq!(pos.w.king,    bit(4));
+        assert_eq!(pos.w.all,     bit(4) | bit(9) | bit(38));
 
         assert_eq!(pos.b.pawns,   0x0);
-        assert_eq!(pos.b.rooks,   1 << 60);
-        assert_eq!(pos.b.knights, 1 << 50);
+        assert_eq!(pos.b.rooks,   bit(60));
+        assert_eq!(pos.b.knights, bit(50));
         assert_eq!(pos.b.bishops, 0x0);
         assert_eq!(pos.b.queens,  0x0);
-        assert_eq!(pos.b.king,    1 << 27);
-        assert_eq!(pos.b.all,     (1 << 27) | (1 << 50) | (1 << 60));
+        assert_eq!(pos.b.king,    bit(27));
+        assert_eq!(pos.b.all,     bit(27) | bit(50) | bit(60));
 
-        assert_eq!(pos.occupied,  (1 << 4) | (1 << 9) | (1 << 27) | (1 << 38) | (1 << 50) | (1 << 60));
+        assert_eq!(pos.occupied,  bit(4) | bit(9) | bit(27) | bit(38) | bit(50) | bit(60));
         assert_eq!(pos.whites_turn, true);
     }
 
@@ -799,6 +762,210 @@ mod tests {
             Move { from: 22, to: 29, piece: Piece::King, promotion: None, en_passant: false },
             Move { from: 22, to: 30, piece: Piece::King, promotion: None, en_passant: false },
         ].into();
+
+        let moves_set: HashSet<Move> = moves.into_iter().collect();
+        assert_eq!(moves_set, expected);
+    }
+
+    #[test]
+    fn rook_masks() {
+        assert_eq!(ROOK_MASKS[0],  (FILE_A | RANK[1]) & !sq_to_bb(&[0, 7, 56]));
+        assert_eq!(ROOK_MASKS[3],  (FILE_D | RANK[1]) & !sq_to_bb(&[3, 0, 7, 59]));
+        assert_eq!(ROOK_MASKS[9],  (FILE_B | RANK[2]) & !sq_to_bb(&[9, 8, 15, 1, 57]));
+        assert_eq!(ROOK_MASKS[19], (FILE_D | RANK[3]) & !sq_to_bb(&[19, 16, 23, 3, 59]));
+        assert_eq!(ROOK_MASKS[24], (FILE_A | RANK[4]) & !sq_to_bb(&[24, 0, 56, 31]));
+        assert_eq!(ROOK_MASKS[38], (FILE_G | RANK[5]) & !sq_to_bb(&[38, 32, 39, 6, 62]));
+        assert_eq!(ROOK_MASKS[55], (FILE_H | RANK[7]) & !sq_to_bb(&[55, 48, 7, 63]));
+    }
+
+    #[test]
+    fn bishop_masks() {
+        assert_eq!(BISHOP_MASKS[0],  sq_to_bb(&[9, 18, 27, 36, 45, 54]));
+        assert_eq!(BISHOP_MASKS[3],  sq_to_bb(&[10, 17, 12, 21, 30]));
+        assert_eq!(BISHOP_MASKS[13], sq_to_bb(&[20, 27, 34, 41, 22]));
+        assert_eq!(BISHOP_MASKS[24], sq_to_bb(&[17, 10, 33, 42, 51]));
+        assert_eq!(BISHOP_MASKS[38], sq_to_bb(&[29, 20, 11, 45, 52]));
+        assert_eq!(BISHOP_MASKS[55], sq_to_bb(&[46, 37, 28, 19, 10]));
+        assert_eq!(BISHOP_MASKS[56], sq_to_bb(&[49, 42, 35, 28, 21, 14]));
+    }
+
+    #[test]
+    fn pseudo_rook_moves_start_position() {
+        let pos = Position::start();
+        let mut moves = Vec::new();
+        pos.generate_pseudo_rook_moves(&mut moves);
+        assert_eq!(moves.len(), 0);
+    }
+
+    #[test]
+    fn pseudo_rook_moves_endgame() {
+        let pos = Position::from_fen("8/3k4/8/R3p3/6P1/1P6/3K2R1/8 w - - 0 1");
+        let mut moves = Vec::new();
+        pos.generate_pseudo_rook_moves(&mut moves);
+
+        let expected: HashSet<Move> = [
+            Move { from: 32, to: 40, piece: Piece::Rook, promotion: None, en_passant: false },
+            Move { from: 32, to: 48, piece: Piece::Rook, promotion: None, en_passant: false },
+            Move { from: 32, to: 56, piece: Piece::Rook, promotion: None, en_passant: false },
+            Move { from: 32, to: 24, piece: Piece::Rook, promotion: None, en_passant: false },
+            Move { from: 32, to: 16, piece: Piece::Rook, promotion: None, en_passant: false },
+            Move { from: 32, to: 8,  piece: Piece::Rook, promotion: None, en_passant: false },
+            Move { from: 32, to: 0,  piece: Piece::Rook, promotion: None, en_passant: false },
+            Move { from: 32, to: 33, piece: Piece::Rook, promotion: None, en_passant: false },
+            Move { from: 32, to: 34, piece: Piece::Rook, promotion: None, en_passant: false },
+            Move { from: 32, to: 35, piece: Piece::Rook, promotion: None, en_passant: false },
+            Move { from: 32, to: 36, piece: Piece::Rook, promotion: None, en_passant: false },
+
+            Move { from: 14, to: 6,  piece: Piece::Rook, promotion: None, en_passant: false },
+            Move { from: 14, to: 22, piece: Piece::Rook, promotion: None, en_passant: false },
+            Move { from: 14, to: 15, piece: Piece::Rook, promotion: None, en_passant: false },
+            Move { from: 14, to: 13, piece: Piece::Rook, promotion: None, en_passant: false },
+            Move { from: 14, to: 12, piece: Piece::Rook, promotion: None, en_passant: false },
+        ].into();
+
+        let moves_set: HashSet<Move> = moves.into_iter().collect();
+        assert_eq!(moves_set, expected);
+    }
+
+    #[test]
+    fn pseudo_bishop_moves_start_position() {
+        let pos = Position::start();
+        let mut moves = Vec::new();
+        pos.generate_pseudo_bishop_moves(&mut moves);
+        assert_eq!(moves.len(), 0);
+    }
+
+    #[test]
+    fn pseudo_bishop_moves_endgame() {
+        let pos = Position::from_fen("8/8/8/3b4/5P1b/1k6/3b3K/b7 b - - 0 1");
+        let mut moves = Vec::new();
+        pos.generate_pseudo_bishop_moves(&mut moves);
+
+        let expected: HashSet<Move> = [
+            Move { from: 0,  to: 9,  piece: Piece::Bishop, promotion: None, en_passant: false },
+            Move { from: 0,  to: 18, piece: Piece::Bishop, promotion: None, en_passant: false },
+            Move { from: 0,  to: 27, piece: Piece::Bishop, promotion: None, en_passant: false },
+            Move { from: 0,  to: 36, piece: Piece::Bishop, promotion: None, en_passant: false },
+            Move { from: 0,  to: 45, piece: Piece::Bishop, promotion: None, en_passant: false },
+            Move { from: 0,  to: 54, piece: Piece::Bishop, promotion: None, en_passant: false },
+            Move { from: 0,  to: 63, piece: Piece::Bishop, promotion: None, en_passant: false },
+
+            Move { from: 11, to: 2,  piece: Piece::Bishop, promotion: None, en_passant: false },
+            Move { from: 11, to: 4,  piece: Piece::Bishop, promotion: None, en_passant: false },
+            Move { from: 11, to: 18, piece: Piece::Bishop, promotion: None, en_passant: false },
+            Move { from: 11, to: 25, piece: Piece::Bishop, promotion: None, en_passant: false },
+            Move { from: 11, to: 32, piece: Piece::Bishop, promotion: None, en_passant: false },
+            Move { from: 11, to: 20, piece: Piece::Bishop, promotion: None, en_passant: false },
+            Move { from: 11, to: 29, piece: Piece::Bishop, promotion: None, en_passant: false },
+
+            Move { from: 31, to: 22, piece: Piece::Bishop, promotion: None, en_passant: false },
+            Move { from: 31, to: 13, piece: Piece::Bishop, promotion: None, en_passant: false },
+            Move { from: 31, to: 4,  piece: Piece::Bishop, promotion: None, en_passant: false },
+            Move { from: 31, to: 38, piece: Piece::Bishop, promotion: None, en_passant: false },
+            Move { from: 31, to: 45, piece: Piece::Bishop, promotion: None, en_passant: false },
+            Move { from: 31, to: 52, piece: Piece::Bishop, promotion: None, en_passant: false },
+            Move { from: 31, to: 59, piece: Piece::Bishop, promotion: None, en_passant: false },
+
+            Move { from: 35, to: 26, piece: Piece::Bishop, promotion: None, en_passant: false },
+            Move { from: 35, to: 44, piece: Piece::Bishop, promotion: None, en_passant: false },
+            Move { from: 35, to: 53, piece: Piece::Bishop, promotion: None, en_passant: false },
+            Move { from: 35, to: 62, piece: Piece::Bishop, promotion: None, en_passant: false },
+            Move { from: 35, to: 42, piece: Piece::Bishop, promotion: None, en_passant: false },
+            Move { from: 35, to: 49, piece: Piece::Bishop, promotion: None, en_passant: false },
+            Move { from: 35, to: 56, piece: Piece::Bishop, promotion: None, en_passant: false },
+            Move { from: 35, to: 28, piece: Piece::Bishop, promotion: None, en_passant: false },
+            Move { from: 35, to: 21, piece: Piece::Bishop, promotion: None, en_passant: false },
+            Move { from: 35, to: 14, piece: Piece::Bishop, promotion: None, en_passant: false },
+            Move { from: 35, to: 7,  piece: Piece::Bishop, promotion: None, en_passant: false },
+        ].into();
+
+        let moves_set: HashSet<Move> = moves.into_iter().collect();
+        assert_eq!(moves_set, expected);
+    }
+
+    #[test]
+    fn pseudo_bishop_moves_blocking_friendly() {
+        let pos = Position::from_fen("1k3K2/8/1P3P2/8/3B4/8/1P3P2/8 w - - 0 1");
+        let mut moves = Vec::new();
+        pos.generate_pseudo_bishop_moves(&mut moves);
+
+        let expected: HashSet<Move> = [
+            Move { from: 27, to: 18, piece: Piece::Bishop, promotion: None, en_passant: false },
+            Move { from: 27, to: 20, piece: Piece::Bishop, promotion: None, en_passant: false },
+            Move { from: 27, to: 34, piece: Piece::Bishop, promotion: None, en_passant: false },
+            Move { from: 27, to: 36, piece: Piece::Bishop, promotion: None, en_passant: false },
+        ].into();
+
+        let moves_set: HashSet<Move> = moves.into_iter().collect();
+        assert_eq!(moves_set, expected);
+    }
+
+    #[test]
+    fn pseudo_bishop_moves_blocking_hostile() {
+        let pos = Position::from_fen("1k3K2/8/1p3p2/8/3B4/8/1p3p2/8 w - - 0 1");
+        let mut moves = Vec::new();
+        pos.generate_pseudo_bishop_moves(&mut moves);
+
+        let expected: HashSet<Move> = [
+            Move { from: 27, to: 18, piece: Piece::Bishop, promotion: None, en_passant: false },
+            Move { from: 27, to: 9,  piece: Piece::Bishop, promotion: None, en_passant: false },
+            Move { from: 27, to: 20, piece: Piece::Bishop, promotion: None, en_passant: false },
+            Move { from: 27, to: 13, piece: Piece::Bishop, promotion: None, en_passant: false },
+            Move { from: 27, to: 34, piece: Piece::Bishop, promotion: None, en_passant: false },
+            Move { from: 27, to: 41, piece: Piece::Bishop, promotion: None, en_passant: false },
+            Move { from: 27, to: 36, piece: Piece::Bishop, promotion: None, en_passant: false },
+            Move { from: 27, to: 45, piece: Piece::Bishop, promotion: None, en_passant: false },
+        ].into();
+
+        let moves_set: HashSet<Move> = moves.into_iter().collect();
+        assert_eq!(moves_set, expected);
+    }
+
+    #[test]
+    fn pseudo_queen_moves_start_position() {
+        let pos = Position::start();
+        let mut moves = Vec::new();
+        pos.generate_pseudo_queen_moves(&mut moves);
+        assert_eq!(moves.len(), 0);
+    }
+
+    #[test]
+    fn pseudo_queen_moves_endgame() {
+        let pos = Position::from_fen("8/k3b3/2r5/8/4Q1N1/8/2K5/8 w - - 0 1");
+        let mut moves = Vec::new();
+        pos.generate_pseudo_queen_moves(&mut moves);
+
+        let expected: HashSet<Move> = [
+            Move { from: 28, to: 4,  piece: Piece::Queen, promotion: None, en_passant: false },
+            Move { from: 28, to: 7,  piece: Piece::Queen, promotion: None, en_passant: false },
+            Move { from: 28, to: 12, piece: Piece::Queen, promotion: None, en_passant: false },
+            Move { from: 28, to: 14, piece: Piece::Queen, promotion: None, en_passant: false },
+            Move { from: 28, to: 19, piece: Piece::Queen, promotion: None, en_passant: false },
+            Move { from: 28, to: 20, piece: Piece::Queen, promotion: None, en_passant: false },
+            Move { from: 28, to: 21, piece: Piece::Queen, promotion: None, en_passant: false },
+            Move { from: 28, to: 24, piece: Piece::Queen, promotion: None, en_passant: false },
+            Move { from: 28, to: 25, piece: Piece::Queen, promotion: None, en_passant: false },
+            Move { from: 28, to: 26, piece: Piece::Queen, promotion: None, en_passant: false },
+            Move { from: 28, to: 27, piece: Piece::Queen, promotion: None, en_passant: false },
+            Move { from: 28, to: 29, piece: Piece::Queen, promotion: None, en_passant: false },
+            Move { from: 28, to: 35, piece: Piece::Queen, promotion: None, en_passant: false },
+            Move { from: 28, to: 36, piece: Piece::Queen, promotion: None, en_passant: false },
+            Move { from: 28, to: 37, piece: Piece::Queen, promotion: None, en_passant: false },
+            Move { from: 28, to: 42, piece: Piece::Queen, promotion: None, en_passant: false },
+            Move { from: 28, to: 44, piece: Piece::Queen, promotion: None, en_passant: false },
+            Move { from: 28, to: 46, piece: Piece::Queen, promotion: None, en_passant: false },
+            Move { from: 28, to: 52, piece: Piece::Queen, promotion: None, en_passant: false },
+            Move { from: 28, to: 55, piece: Piece::Queen, promotion: None, en_passant: false },
+        ].into();
+
+        println!("gen");
+        for m in &moves {
+            println!("{:?}", m);
+        }
+        println!("exp");
+        for m in &expected {
+            println!("{:?}", m);
+        }
 
         let moves_set: HashSet<Move> = moves.into_iter().collect();
         assert_eq!(moves_set, expected);

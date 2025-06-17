@@ -1,0 +1,138 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in library 'chess_engine'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--lib",
+                    "--package=chess-engine"
+                ],
+                "filter": {
+                    "name": "chess_engine",
+                    "kind": "lib"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug executable 'bishop_magics_gen'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=bishop_magics_gen",
+                    "--package=chess-engine"
+                ],
+                "filter": {
+                    "name": "bishop_magics_gen",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in executable 'bishop_magics_gen'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--bin=bishop_magics_gen",
+                    "--package=chess-engine"
+                ],
+                "filter": {
+                    "name": "bishop_magics_gen",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug executable 'chess-engine'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=chess-engine",
+                    "--package=chess-engine"
+                ],
+                "filter": {
+                    "name": "chess-engine",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in executable 'chess-engine'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--bin=chess-engine",
+                    "--package=chess-engine"
+                ],
+                "filter": {
+                    "name": "chess-engine",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug executable 'rook_magics_gen'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=rook_magics_gen",
+                    "--package=chess-engine"
+                ],
+                "filter": {
+                    "name": "rook_magics_gen",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in executable 'rook_magics_gen'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--bin=rook_magics_gen",
+                    "--package=chess-engine"
+                ],
+                "filter": {
+                    "name": "rook_magics_gen",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        }
+    ]
+}
