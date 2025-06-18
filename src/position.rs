@@ -30,7 +30,7 @@ impl BitOps for Bitboard {
 }
 
 
-#[derive(Default)]
+#[derive(Default, Copy, Clone)]
 pub struct BitboardSet {
     pub all:     Bitboard,
     pub pawns:   Bitboard,
@@ -54,7 +54,7 @@ impl BitboardSet {
             Piece::Rook   => &mut self.rooks,
             Piece::Queen  => &mut self.queens,
             Piece::King   => &mut self.king,
-            Piece::Pawn   => unimplemented!()
+            Piece::Pawn   => &mut self.pawns,
         }
     }
 
@@ -178,6 +178,7 @@ impl CastlingRights {
 
 
 /// Uses [Little-Endian Rank-File Mapping](https://www.chessprogramming.org/Square_Mapping_Considerations#Little-Endian_Rank-File_Mapping)
+#[derive(Copy, Clone)]
 pub struct Position {
     pub w: BitboardSet,
     pub b: BitboardSet,
@@ -328,7 +329,7 @@ impl Position {
         }
     }
 
-    fn make_move(&mut self, m: &Move) {
+    pub fn make_move(&mut self, m: &Move) {
         let (friendly, hostile, kingside, queenside) = if self.whites_turn {
             (&mut self.w, &mut self.b, &mut self.castling.white_kingside, &mut self.castling.white_queenside)
         } else {
