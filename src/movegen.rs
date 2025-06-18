@@ -13,7 +13,7 @@ pub fn pseudo_moves(pos: Position) -> Vec<Move> {
     moves
 }
 
-fn add_pawn_moves(moves: &mut Vec<Move>, to_mask: u64, offset: i8, promotion: bool, en_passant: bool) {
+fn add_pawn_moves(moves: &mut Vec<Move>, to_mask: u64, offset: i8, capture: bool, promotion: bool, en_passant: bool) {
     let mut bb = to_mask;
     while bb != 0 {
         let to = pop_lsb(&mut bb);
@@ -21,12 +21,12 @@ fn add_pawn_moves(moves: &mut Vec<Move>, to_mask: u64, offset: i8, promotion: bo
         // TODO: if inside a loop? too slow?
         if promotion {
             for promo in [Piece::Queen, Piece::Rook, Piece::Bishop, Piece::Knight] {
-                moves.push(Move::pawn(from, to, Some(promo), en_passant));
+                moves.push(Move::pawn(from, to, capture, Some(promo), en_passant));
             }
         } else if en_passant {
-            moves.push(Move::pawn(from, to, None, true));
+            moves.push(Move::pawn(from, to, capture, None, true));
         } else {
-            moves.push(Move::pawn(from, to, None, false));
+            moves.push(Move::pawn(from, to, capture, None, false));
         }
     }
 }
@@ -80,17 +80,17 @@ fn generate_pseudo_pawn_moves(pos: &Position, moves: &mut Vec<Move>) {
     let ep_left = signed_shift(pawns & mask_left, left_offset) & en_passant_bb;
     let ep_right = signed_shift(pawns & mask_right, right_offset) & en_passant_bb;
 
-    add_pawn_moves(moves, non_promo_push,  forward_offset,     false, false);
-    add_pawn_moves(moves, double,          2 * forward_offset, false, false);
-    add_pawn_moves(moves, non_promo_left,  left_offset,        false, false);
-    add_pawn_moves(moves, non_promo_right, right_offset,       false, false);
+    add_pawn_moves(moves, non_promo_push,  forward_offset,     false, false, false);
+    add_pawn_moves(moves, double,          2 * forward_offset, false, false, false);
+    add_pawn_moves(moves, non_promo_left,  left_offset,        true,  false, false);
+    add_pawn_moves(moves, non_promo_right, right_offset,       true,  false, false);
 
-    add_pawn_moves(moves, promo_push,  forward_offset, true, false);
-    add_pawn_moves(moves, promo_left,  left_offset,    true, false);
-    add_pawn_moves(moves, promo_right, right_offset,   true, false);
+    add_pawn_moves(moves, promo_push,  forward_offset, false, true, false);
+    add_pawn_moves(moves, promo_left,  left_offset,    true,  true, false);
+    add_pawn_moves(moves, promo_right, right_offset,   true,  true, false);
 
-    add_pawn_moves(moves, ep_left,  left_offset,  false, true);
-    add_pawn_moves(moves, ep_right, right_offset, false, true);
+    add_pawn_moves(moves, ep_left,  left_offset,  true, false, true);
+    add_pawn_moves(moves, ep_right, right_offset, true, false, true);
 }
 
 fn knight_attacks(_pos: &Position, sq: usize, friendly: u64) -> u64 {
@@ -126,16 +126,17 @@ fn king_attacks(_pos: &Position, sq: usize, friendly: u64) -> u64 {
 }
 
 fn generate_pseudo_moves_for_piece(pos: &Position, piece_type: Piece, moves: &mut Vec<Move>) {
-    let bb = if pos.whites_turn { &pos.w } else { &pos.b };
-    let friendly = bb.all;
+    let (my_set, enemy_set) = if pos.whites_turn { (&pos.w, &pos.b) } else { (&pos.b, &pos.w) };
+    let friendly = my_set.all;
+    let hostile = enemy_set.all;
 
     type AttackFn = fn(&Position, usize, u64) -> u64;
     let (mut pieces, attack_fn): (u64, AttackFn) = match piece_type {
-        Piece::Knight => (bb.knights, knight_attacks),
-        Piece::Bishop => (bb.bishops, bishop_attacks),
-        Piece::Rook   => (bb.rooks, rook_attacks),
-        Piece::Queen  => (bb.queens, queen_attacks),
-        Piece::King   => (bb.king, king_attacks),
+        Piece::Knight => (my_set.knights, knight_attacks),
+        Piece::Bishop => (my_set.bishops, bishop_attacks),
+        Piece::Rook   => (my_set.rooks, rook_attacks),
+        Piece::Queen  => (my_set.queens, queen_attacks),
+        Piece::King   => (my_set.king, king_attacks),
         Piece::Pawn   => panic!("aaaghhh")
     };
 
@@ -144,7 +145,8 @@ fn generate_pseudo_moves_for_piece(pos: &Position, piece_type: Piece, moves: &mu
         let mut attacks = attack_fn(pos, from, friendly);
         while attacks != 0 {
             let to = pop_lsb(&mut attacks);
-            moves.push(Move::new(from as u8, to, piece_type));
+            let capture = (bit(to.into()) & hostile) > 0;
+            moves.push(Move::new(from as u8, to, piece_type, capture));
         }
     }
 }
@@ -162,22 +164,22 @@ mod tests {
         generate_pseudo_pawn_moves(&pos, &mut moves);
 
         let expected: HashSet<Move> = [
-            Move { from: 8,  to: 16, piece: Piece::Pawn, promotion: None, en_passant: false },
-            Move { from: 9,  to: 17, piece: Piece::Pawn, promotion: None, en_passant: false },
-            Move { from: 10, to: 18, piece: Piece::Pawn, promotion: None, en_passant: false },
-            Move { from: 11, to: 19, piece: Piece::Pawn, promotion: None, en_passant: false },
-            Move { from: 12, to: 20, piece: Piece::Pawn, promotion: None, en_passant: false },
-            Move { from: 13, to: 21, piece: Piece::Pawn, promotion: None, en_passant: false },
-            Move { from: 14, to: 22, piece: Piece::Pawn, promotion: None, en_passant: false },
-            Move { from: 15, to: 23, piece: Piece::Pawn, promotion: None, en_passant: false },
-            Move { from: 8,  to: 24, piece: Piece::Pawn, promotion: None, en_passant: false },
-            Move { from: 9,  to: 25, piece: Piece::Pawn, promotion: None, en_passant: false },
-            Move { from: 10, to: 26, piece: Piece::Pawn, promotion: None, en_passant: false },
-            Move { from: 11, to: 27, piece: Piece::Pawn, promotion: None, en_passant: false },
-            Move { from: 12, to: 28, piece: Piece::Pawn, promotion: None, en_passant: false },
-            Move { from: 13, to: 29, piece: Piece::Pawn, promotion: None, en_passant: false },
-            Move { from: 14, to: 30, piece: Piece::Pawn, promotion: None, en_passant: false },
-            Move { from: 15, to: 31, piece: Piece::Pawn, promotion: None, en_passant: false },
+            Move::pawn(8, 16, false, None, false),
+            Move::pawn(9, 17, false, None, false),
+            Move::pawn(10, 18, false, None, false),
+            Move::pawn(11, 19, false, None, false),
+            Move::pawn(12, 20, false, None, false),
+            Move::pawn(13, 21, false, None, false),
+            Move::pawn(14, 22, false, None, false),
+            Move::pawn(15, 23, false, None, false),
+            Move::pawn(8, 24, false, None, false),
+            Move::pawn(9, 25, false, None, false),
+            Move::pawn(10, 26, false, None, false),
+            Move::pawn(11, 27, false, None, false),
+            Move::pawn(12, 28, false, None, false),
+            Move::pawn(13, 29, false, None, false),
+            Move::pawn(14, 30, false, None, false),
+            Move::pawn(15, 31, false, None, false),
         ].into();
 
         let moves_set: HashSet<Move> = moves.into_iter().collect();
@@ -191,37 +193,37 @@ mod tests {
         generate_pseudo_pawn_moves(&pos, &mut moves);
 
         let expected: HashSet<Move> = [
-            Move { from: 48, to: 41, piece: Piece::Pawn, promotion: None, en_passant: false },
-            Move { from: 50, to: 41, piece: Piece::Pawn, promotion: None, en_passant: false },
-            Move { from: 50, to: 42, piece: Piece::Pawn, promotion: None, en_passant: false },
-            Move { from: 50, to: 34, piece: Piece::Pawn, promotion: None, en_passant: false },
-            Move { from: 51, to: 43, piece: Piece::Pawn, promotion: None, en_passant: false },
-            Move { from: 55, to: 47, piece: Piece::Pawn, promotion: None, en_passant: false },
-            Move { from: 55, to: 39, piece: Piece::Pawn, promotion: None, en_passant: false },
+            Move::pawn(48, 41, true, None, false),
+            Move::pawn(50, 41, true, None, false),
+            Move::pawn(50, 42, false, None, false),
+            Move::pawn(50, 34, false, None, false),
+            Move::pawn(51, 43, false, None, false),
+            Move::pawn(55, 47, false, None, false),
+            Move::pawn(55, 39, false, None, false),
 
-            Move { from: 9,  to: 1, piece: Piece::Pawn, promotion: Some(Piece::Knight), en_passant: false },
-            Move { from: 9,  to: 2, piece: Piece::Pawn, promotion: Some(Piece::Knight), en_passant: false },
-            Move { from: 13, to: 5, piece: Piece::Pawn, promotion: Some(Piece::Knight), en_passant: false },
-            Move { from: 13, to: 4, piece: Piece::Pawn, promotion: Some(Piece::Knight), en_passant: false },
-            Move { from: 14, to: 6, piece: Piece::Pawn, promotion: Some(Piece::Knight), en_passant: false },
+            Move::pawn(9, 1, false, Some(Piece::Knight), false),
+            Move::pawn(9, 2, true, Some(Piece::Knight), false),
+            Move::pawn(13, 5, false, Some(Piece::Knight), false),
+            Move::pawn(13, 4, true, Some(Piece::Knight), false),
+            Move::pawn(14, 6, false, Some(Piece::Knight), false),
 
-            Move { from: 9,  to: 1, piece: Piece::Pawn, promotion: Some(Piece::Bishop), en_passant: false },
-            Move { from: 9,  to: 2, piece: Piece::Pawn, promotion: Some(Piece::Bishop), en_passant: false },
-            Move { from: 13, to: 5, piece: Piece::Pawn, promotion: Some(Piece::Bishop), en_passant: false },
-            Move { from: 13, to: 4, piece: Piece::Pawn, promotion: Some(Piece::Bishop), en_passant: false },
-            Move { from: 14, to: 6, piece: Piece::Pawn, promotion: Some(Piece::Bishop), en_passant: false },
+            Move::pawn(9, 1, false, Some(Piece::Bishop), false),
+            Move::pawn(9, 2, true, Some(Piece::Bishop), false),
+            Move::pawn(13, 5, false, Some(Piece::Bishop), false),
+            Move::pawn(13, 4, true, Some(Piece::Bishop), false),
+            Move::pawn(14, 6, false, Some(Piece::Bishop), false),
 
-            Move { from: 9,  to: 1, piece: Piece::Pawn, promotion: Some(Piece::Rook), en_passant: false },
-            Move { from: 9,  to: 2, piece: Piece::Pawn, promotion: Some(Piece::Rook), en_passant: false },
-            Move { from: 13, to: 5, piece: Piece::Pawn, promotion: Some(Piece::Rook), en_passant: false },
-            Move { from: 13, to: 4, piece: Piece::Pawn, promotion: Some(Piece::Rook), en_passant: false },
-            Move { from: 14, to: 6, piece: Piece::Pawn, promotion: Some(Piece::Rook), en_passant: false },
+            Move::pawn(9, 1, false, Some(Piece::Rook), false),
+            Move::pawn(9, 2, true, Some(Piece::Rook), false),
+            Move::pawn(13, 5, false, Some(Piece::Rook), false),
+            Move::pawn(13, 4, true, Some(Piece::Rook), false),
+            Move::pawn(14, 6, false, Some(Piece::Rook), false),
 
-            Move { from: 9,  to: 1, piece: Piece::Pawn, promotion: Some(Piece::Queen), en_passant: false },
-            Move { from: 9,  to: 2, piece: Piece::Pawn, promotion: Some(Piece::Queen), en_passant: false },
-            Move { from: 13, to: 5, piece: Piece::Pawn, promotion: Some(Piece::Queen), en_passant: false },
-            Move { from: 13, to: 4, piece: Piece::Pawn, promotion: Some(Piece::Queen), en_passant: false },
-            Move { from: 14, to: 6, piece: Piece::Pawn, promotion: Some(Piece::Queen), en_passant: false }
+            Move::pawn(9, 1, false, Some(Piece::Queen), false),
+            Move::pawn(9, 2, true, Some(Piece::Queen), false),
+            Move::pawn(13, 5, false, Some(Piece::Queen), false),
+            Move::pawn(13, 4, true, Some(Piece::Queen), false),
+            Move::pawn(14, 6, false, Some(Piece::Queen), false),
         ].into();
 
         let moves_set: HashSet<Move> = moves.into_iter().collect();
@@ -235,9 +237,9 @@ mod tests {
         generate_pseudo_pawn_moves(&pos, &mut moves);
 
         let expected: HashSet<Move> = [
-            Move { from: 34, to: 42, piece: Piece::Pawn, promotion: None, en_passant: false },
-            Move { from: 34, to: 41, piece: Piece::Pawn, promotion: None, en_passant: true },
-            Move { from: 36, to: 44, piece: Piece::Pawn, promotion: None, en_passant: false },
+            Move::pawn(34, 42, false, None, false),
+            Move::pawn(34, 41, true, None, true),
+            Move::pawn(36, 44, false, None, false),
         ].into();
 
         let moves_set: HashSet<Move> = moves.into_iter().collect();
@@ -251,10 +253,10 @@ mod tests {
         generate_pseudo_moves_for_piece(&pos, Piece::Knight, &mut moves);
 
         let expected: HashSet<Move> = [
-            Move { from: 1, to: 16, piece: Piece::Knight, promotion: None, en_passant: false },
-            Move { from: 1, to: 18, piece: Piece::Knight, promotion: None, en_passant: false },
-            Move { from: 6, to: 21, piece: Piece::Knight, promotion: None, en_passant: false },
-            Move { from: 6, to: 23, piece: Piece::Knight, promotion: None, en_passant: false },
+            Move::new(1, 16, Piece::Knight, false),
+            Move::new(1, 18, Piece::Knight, false),
+            Move::new(6, 21, Piece::Knight, false),
+            Move::new(6, 23, Piece::Knight, false),
         ].into();
 
         let moves_set: HashSet<Move> = moves.into_iter().collect();
@@ -268,28 +270,26 @@ mod tests {
         generate_pseudo_moves_for_piece(&pos, Piece::Knight, &mut moves);
 
         let expected: HashSet<Move> = [
-            Move { from: 13, to:  3, piece: Piece::Knight, promotion: None, en_passant: false },
-            Move { from: 13, to:  7, piece: Piece::Knight, promotion: None, en_passant: false },
-            Move { from: 13, to: 19, piece: Piece::Knight, promotion: None, en_passant: false },
-            Move { from: 13, to: 23, piece: Piece::Knight, promotion: None, en_passant: false },
-            Move { from: 13, to: 28, piece: Piece::Knight, promotion: None, en_passant: false },
-            Move { from: 13, to: 30, piece: Piece::Knight, promotion: None, en_passant: false },
-
-            Move { from: 27, to: 10, piece: Piece::Knight, promotion: None, en_passant: false },
-            Move { from: 27, to: 12, piece: Piece::Knight, promotion: None, en_passant: false },
-            Move { from: 27, to: 17, piece: Piece::Knight, promotion: None, en_passant: false },
-            Move { from: 27, to: 21, piece: Piece::Knight, promotion: None, en_passant: false },
-            Move { from: 27, to: 33, piece: Piece::Knight, promotion: None, en_passant: false },
-            Move { from: 27, to: 37, piece: Piece::Knight, promotion: None, en_passant: false },
-            Move { from: 27, to: 42, piece: Piece::Knight, promotion: None, en_passant: false },
-            Move { from: 27, to: 44, piece: Piece::Knight, promotion: None, en_passant: false },
-
-            Move { from: 41, to: 24, piece: Piece::Knight, promotion: None, en_passant: false },
-            Move { from: 41, to: 26, piece: Piece::Knight, promotion: None, en_passant: false },
-            Move { from: 41, to: 35, piece: Piece::Knight, promotion: None, en_passant: false },
-            Move { from: 41, to: 51, piece: Piece::Knight, promotion: None, en_passant: false },
-            Move { from: 41, to: 56, piece: Piece::Knight, promotion: None, en_passant: false },
-            Move { from: 41, to: 58, piece: Piece::Knight, promotion: None, en_passant: false },
+            Move::new(13, 3, Piece::Knight, false),
+            Move::new(13, 7, Piece::Knight, false),
+            Move::new(13, 19, Piece::Knight, false),
+            Move::new(13, 23, Piece::Knight, false),
+            Move::new(13, 28, Piece::Knight, false),
+            Move::new(13, 30, Piece::Knight, false),
+            Move::new(27, 10, Piece::Knight, false),
+            Move::new(27, 12, Piece::Knight, false),
+            Move::new(27, 17, Piece::Knight, false),
+            Move::new(27, 21, Piece::Knight, false),
+            Move::new(27, 33, Piece::Knight, false),
+            Move::new(27, 37, Piece::Knight, false),
+            Move::new(27, 42, Piece::Knight, false),
+            Move::new(27, 44, Piece::Knight, false),
+            Move::new(41, 24, Piece::Knight, false),
+            Move::new(41, 26, Piece::Knight, false),
+            Move::new(41, 35, Piece::Knight, true),
+            Move::new(41, 51, Piece::Knight, true),
+            Move::new(41, 56, Piece::Knight, false),
+            Move::new(41, 58, Piece::Knight, false),
         ].into();
 
         let moves_set: HashSet<Move> = moves.into_iter().collect();
@@ -311,13 +311,13 @@ mod tests {
         generate_pseudo_moves_for_piece(&pos, Piece::King, &mut moves);
 
         let expected: HashSet<Move> = [
-            Move { from: 22, to: 13, piece: Piece::King, promotion: None, en_passant: false },
-            Move { from: 22, to: 14, piece: Piece::King, promotion: None, en_passant: false },
-            Move { from: 22, to: 15, piece: Piece::King, promotion: None, en_passant: false },
-            Move { from: 22, to: 21, piece: Piece::King, promotion: None, en_passant: false },
-            Move { from: 22, to: 23, piece: Piece::King, promotion: None, en_passant: false },
-            Move { from: 22, to: 29, piece: Piece::King, promotion: None, en_passant: false },
-            Move { from: 22, to: 30, piece: Piece::King, promotion: None, en_passant: false },
+            Move::new(22, 13, Piece::King, false),
+            Move::new(22, 14, Piece::King, false),
+            Move::new(22, 15, Piece::King, false),
+            Move::new(22, 21, Piece::King, false),
+            Move::new(22, 23, Piece::King, false),
+            Move::new(22, 29, Piece::King, false),
+            Move::new(22, 30, Piece::King, false),
         ].into();
 
         let moves_set: HashSet<Move> = moves.into_iter().collect();
@@ -339,23 +339,22 @@ mod tests {
         generate_pseudo_moves_for_piece(&pos, Piece::Rook, &mut moves);
 
         let expected: HashSet<Move> = [
-            Move { from: 32, to: 40, piece: Piece::Rook, promotion: None, en_passant: false },
-            Move { from: 32, to: 48, piece: Piece::Rook, promotion: None, en_passant: false },
-            Move { from: 32, to: 56, piece: Piece::Rook, promotion: None, en_passant: false },
-            Move { from: 32, to: 24, piece: Piece::Rook, promotion: None, en_passant: false },
-            Move { from: 32, to: 16, piece: Piece::Rook, promotion: None, en_passant: false },
-            Move { from: 32, to: 8,  piece: Piece::Rook, promotion: None, en_passant: false },
-            Move { from: 32, to: 0,  piece: Piece::Rook, promotion: None, en_passant: false },
-            Move { from: 32, to: 33, piece: Piece::Rook, promotion: None, en_passant: false },
-            Move { from: 32, to: 34, piece: Piece::Rook, promotion: None, en_passant: false },
-            Move { from: 32, to: 35, piece: Piece::Rook, promotion: None, en_passant: false },
-            Move { from: 32, to: 36, piece: Piece::Rook, promotion: None, en_passant: false },
-
-            Move { from: 14, to: 6,  piece: Piece::Rook, promotion: None, en_passant: false },
-            Move { from: 14, to: 22, piece: Piece::Rook, promotion: None, en_passant: false },
-            Move { from: 14, to: 15, piece: Piece::Rook, promotion: None, en_passant: false },
-            Move { from: 14, to: 13, piece: Piece::Rook, promotion: None, en_passant: false },
-            Move { from: 14, to: 12, piece: Piece::Rook, promotion: None, en_passant: false },
+            Move::new(32, 40, Piece::Rook, false),
+            Move::new(32, 48, Piece::Rook, false),
+            Move::new(32, 56, Piece::Rook, false),
+            Move::new(32, 24, Piece::Rook, false),
+            Move::new(32, 16, Piece::Rook, false),
+            Move::new(32, 8, Piece::Rook, false),
+            Move::new(32, 0, Piece::Rook, false),
+            Move::new(32, 33, Piece::Rook, false),
+            Move::new(32, 34, Piece::Rook, false),
+            Move::new(32, 35, Piece::Rook, false),
+            Move::new(32, 36, Piece::Rook, true),
+            Move::new(14, 6, Piece::Rook, false),
+            Move::new(14, 22, Piece::Rook, false),
+            Move::new(14, 15, Piece::Rook, false),
+            Move::new(14, 13, Piece::Rook, false),
+            Move::new(14, 12, Piece::Rook, false),
         ].into();
 
         let moves_set: HashSet<Move> = moves.into_iter().collect();
@@ -377,41 +376,38 @@ mod tests {
         generate_pseudo_moves_for_piece(&pos, Piece::Bishop, &mut moves);
 
         let expected: HashSet<Move> = [
-            Move { from: 0,  to: 9,  piece: Piece::Bishop, promotion: None, en_passant: false },
-            Move { from: 0,  to: 18, piece: Piece::Bishop, promotion: None, en_passant: false },
-            Move { from: 0,  to: 27, piece: Piece::Bishop, promotion: None, en_passant: false },
-            Move { from: 0,  to: 36, piece: Piece::Bishop, promotion: None, en_passant: false },
-            Move { from: 0,  to: 45, piece: Piece::Bishop, promotion: None, en_passant: false },
-            Move { from: 0,  to: 54, piece: Piece::Bishop, promotion: None, en_passant: false },
-            Move { from: 0,  to: 63, piece: Piece::Bishop, promotion: None, en_passant: false },
-
-            Move { from: 11, to: 2,  piece: Piece::Bishop, promotion: None, en_passant: false },
-            Move { from: 11, to: 4,  piece: Piece::Bishop, promotion: None, en_passant: false },
-            Move { from: 11, to: 18, piece: Piece::Bishop, promotion: None, en_passant: false },
-            Move { from: 11, to: 25, piece: Piece::Bishop, promotion: None, en_passant: false },
-            Move { from: 11, to: 32, piece: Piece::Bishop, promotion: None, en_passant: false },
-            Move { from: 11, to: 20, piece: Piece::Bishop, promotion: None, en_passant: false },
-            Move { from: 11, to: 29, piece: Piece::Bishop, promotion: None, en_passant: false },
-
-            Move { from: 31, to: 22, piece: Piece::Bishop, promotion: None, en_passant: false },
-            Move { from: 31, to: 13, piece: Piece::Bishop, promotion: None, en_passant: false },
-            Move { from: 31, to: 4,  piece: Piece::Bishop, promotion: None, en_passant: false },
-            Move { from: 31, to: 38, piece: Piece::Bishop, promotion: None, en_passant: false },
-            Move { from: 31, to: 45, piece: Piece::Bishop, promotion: None, en_passant: false },
-            Move { from: 31, to: 52, piece: Piece::Bishop, promotion: None, en_passant: false },
-            Move { from: 31, to: 59, piece: Piece::Bishop, promotion: None, en_passant: false },
-
-            Move { from: 35, to: 26, piece: Piece::Bishop, promotion: None, en_passant: false },
-            Move { from: 35, to: 44, piece: Piece::Bishop, promotion: None, en_passant: false },
-            Move { from: 35, to: 53, piece: Piece::Bishop, promotion: None, en_passant: false },
-            Move { from: 35, to: 62, piece: Piece::Bishop, promotion: None, en_passant: false },
-            Move { from: 35, to: 42, piece: Piece::Bishop, promotion: None, en_passant: false },
-            Move { from: 35, to: 49, piece: Piece::Bishop, promotion: None, en_passant: false },
-            Move { from: 35, to: 56, piece: Piece::Bishop, promotion: None, en_passant: false },
-            Move { from: 35, to: 28, piece: Piece::Bishop, promotion: None, en_passant: false },
-            Move { from: 35, to: 21, piece: Piece::Bishop, promotion: None, en_passant: false },
-            Move { from: 35, to: 14, piece: Piece::Bishop, promotion: None, en_passant: false },
-            Move { from: 35, to: 7,  piece: Piece::Bishop, promotion: None, en_passant: false },
+            Move::new(0, 9, Piece::Bishop, false),
+            Move::new(0, 18, Piece::Bishop, false),
+            Move::new(0, 27, Piece::Bishop, false),
+            Move::new(0, 36, Piece::Bishop, false),
+            Move::new(0, 45, Piece::Bishop, false),
+            Move::new(0, 54, Piece::Bishop, false),
+            Move::new(0, 63, Piece::Bishop, false),
+            Move::new(11, 2, Piece::Bishop, false),
+            Move::new(11, 4, Piece::Bishop, false),
+            Move::new(11, 18, Piece::Bishop, false),
+            Move::new(11, 25, Piece::Bishop, false),
+            Move::new(11, 32, Piece::Bishop, false),
+            Move::new(11, 20, Piece::Bishop, false),
+            Move::new(11, 29, Piece::Bishop, true),
+            Move::new(31, 22, Piece::Bishop, false),
+            Move::new(31, 13, Piece::Bishop, false),
+            Move::new(31, 4, Piece::Bishop, false),
+            Move::new(31, 38, Piece::Bishop, false),
+            Move::new(31, 45, Piece::Bishop, false),
+            Move::new(31, 52, Piece::Bishop, false),
+            Move::new(31, 59, Piece::Bishop, false),
+            Move::new(35, 26, Piece::Bishop, false),
+            Move::new(35, 44, Piece::Bishop, false),
+            Move::new(35, 53, Piece::Bishop, false),
+            Move::new(35, 62, Piece::Bishop, false),
+            Move::new(35, 42, Piece::Bishop, false),
+            Move::new(35, 49, Piece::Bishop, false),
+            Move::new(35, 56, Piece::Bishop, false),
+            Move::new(35, 28, Piece::Bishop, false),
+            Move::new(35, 21, Piece::Bishop, false),
+            Move::new(35, 14, Piece::Bishop, false),
+            Move::new(35, 7, Piece::Bishop, false),
         ].into();
 
         let moves_set: HashSet<Move> = moves.into_iter().collect();
@@ -425,10 +421,10 @@ mod tests {
         generate_pseudo_moves_for_piece(&pos, Piece::Bishop, &mut moves);
 
         let expected: HashSet<Move> = [
-            Move { from: 27, to: 18, piece: Piece::Bishop, promotion: None, en_passant: false },
-            Move { from: 27, to: 20, piece: Piece::Bishop, promotion: None, en_passant: false },
-            Move { from: 27, to: 34, piece: Piece::Bishop, promotion: None, en_passant: false },
-            Move { from: 27, to: 36, piece: Piece::Bishop, promotion: None, en_passant: false },
+            Move::new(27, 18, Piece::Bishop, false),
+            Move::new(27, 20, Piece::Bishop, false),
+            Move::new(27, 34, Piece::Bishop, false),
+            Move::new(27, 36, Piece::Bishop, false),
         ].into();
 
         let moves_set: HashSet<Move> = moves.into_iter().collect();
@@ -442,14 +438,14 @@ mod tests {
         generate_pseudo_moves_for_piece(&pos, Piece::Bishop, &mut moves);
 
         let expected: HashSet<Move> = [
-            Move { from: 27, to: 18, piece: Piece::Bishop, promotion: None, en_passant: false },
-            Move { from: 27, to: 9,  piece: Piece::Bishop, promotion: None, en_passant: false },
-            Move { from: 27, to: 20, piece: Piece::Bishop, promotion: None, en_passant: false },
-            Move { from: 27, to: 13, piece: Piece::Bishop, promotion: None, en_passant: false },
-            Move { from: 27, to: 34, piece: Piece::Bishop, promotion: None, en_passant: false },
-            Move { from: 27, to: 41, piece: Piece::Bishop, promotion: None, en_passant: false },
-            Move { from: 27, to: 36, piece: Piece::Bishop, promotion: None, en_passant: false },
-            Move { from: 27, to: 45, piece: Piece::Bishop, promotion: None, en_passant: false },
+            Move::new(27, 18, Piece::Bishop, false),
+            Move::new(27, 9, Piece::Bishop, true),
+            Move::new(27, 20, Piece::Bishop, false),
+            Move::new(27, 13, Piece::Bishop, true),
+            Move::new(27, 34, Piece::Bishop, false),
+            Move::new(27, 41, Piece::Bishop, true),
+            Move::new(27, 36, Piece::Bishop, false),
+            Move::new(27, 45, Piece::Bishop, true),
         ].into();
 
         let moves_set: HashSet<Move> = moves.into_iter().collect();
@@ -471,36 +467,27 @@ mod tests {
         generate_pseudo_moves_for_piece(&pos, Piece::Queen, &mut moves);
 
         let expected: HashSet<Move> = [
-            Move { from: 28, to: 4,  piece: Piece::Queen, promotion: None, en_passant: false },
-            Move { from: 28, to: 7,  piece: Piece::Queen, promotion: None, en_passant: false },
-            Move { from: 28, to: 12, piece: Piece::Queen, promotion: None, en_passant: false },
-            Move { from: 28, to: 14, piece: Piece::Queen, promotion: None, en_passant: false },
-            Move { from: 28, to: 19, piece: Piece::Queen, promotion: None, en_passant: false },
-            Move { from: 28, to: 20, piece: Piece::Queen, promotion: None, en_passant: false },
-            Move { from: 28, to: 21, piece: Piece::Queen, promotion: None, en_passant: false },
-            Move { from: 28, to: 24, piece: Piece::Queen, promotion: None, en_passant: false },
-            Move { from: 28, to: 25, piece: Piece::Queen, promotion: None, en_passant: false },
-            Move { from: 28, to: 26, piece: Piece::Queen, promotion: None, en_passant: false },
-            Move { from: 28, to: 27, piece: Piece::Queen, promotion: None, en_passant: false },
-            Move { from: 28, to: 29, piece: Piece::Queen, promotion: None, en_passant: false },
-            Move { from: 28, to: 35, piece: Piece::Queen, promotion: None, en_passant: false },
-            Move { from: 28, to: 36, piece: Piece::Queen, promotion: None, en_passant: false },
-            Move { from: 28, to: 37, piece: Piece::Queen, promotion: None, en_passant: false },
-            Move { from: 28, to: 42, piece: Piece::Queen, promotion: None, en_passant: false },
-            Move { from: 28, to: 44, piece: Piece::Queen, promotion: None, en_passant: false },
-            Move { from: 28, to: 46, piece: Piece::Queen, promotion: None, en_passant: false },
-            Move { from: 28, to: 52, piece: Piece::Queen, promotion: None, en_passant: false },
-            Move { from: 28, to: 55, piece: Piece::Queen, promotion: None, en_passant: false },
+            Move::new(28, 4, Piece::Queen, false),
+            Move::new(28, 7, Piece::Queen, false),
+            Move::new(28, 12, Piece::Queen, false),
+            Move::new(28, 14, Piece::Queen, false),
+            Move::new(28, 19, Piece::Queen, false),
+            Move::new(28, 20, Piece::Queen, false),
+            Move::new(28, 21, Piece::Queen, false),
+            Move::new(28, 24, Piece::Queen, false),
+            Move::new(28, 25, Piece::Queen, false),
+            Move::new(28, 26, Piece::Queen, false),
+            Move::new(28, 27, Piece::Queen, false),
+            Move::new(28, 29, Piece::Queen, false),
+            Move::new(28, 35, Piece::Queen, false),
+            Move::new(28, 36, Piece::Queen, false),
+            Move::new(28, 37, Piece::Queen, false),
+            Move::new(28, 42, Piece::Queen, true),
+            Move::new(28, 44, Piece::Queen, false),
+            Move::new(28, 46, Piece::Queen, false),
+            Move::new(28, 52, Piece::Queen, true),
+            Move::new(28, 55, Piece::Queen, false),
         ].into();
-
-        println!("gen");
-        for m in &moves {
-            println!("{:?}", m);
-        }
-        println!("exp");
-        for m in &expected {
-            println!("{:?}", m);
-        }
 
         let moves_set: HashSet<Move> = moves.into_iter().collect();
         assert_eq!(moves_set, expected);
