@@ -1,6 +1,18 @@
 # chess-engine
 Hobby-level, bitboard-representation chess engine
 
+TODO list towards a minimal-working prototype:
+- [ ] Move generation:
+    - [ ] Implement castling
+    - [ ] Discard illegal moves / generate only legal moves
+    - [ ] Thoroughly debug all the `perft` tests
+    - [ ] Time the `perft` function. Is it fast enough?
+- [ ] Searching the tree:
+    - [ ] Naive material evaluation function
+    - [ ] Minimax searching algorithm
+    - [ ] Alpha-beta pruning
+- [ ] Universal Chess Interface (UCI)
+
 ## Building
 
 ```bash
