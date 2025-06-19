@@ -32,7 +32,7 @@ impl BitOps for Bitboard {
 }
 
 
-#[derive(Default, Copy, Clone)]
+#[derive(Default, Debug, Copy, Clone, PartialEq, Eq)]
 pub struct BitboardSet {
     pub all:     Bitboard,
     pub pawns:   Bitboard,
@@ -387,8 +387,33 @@ impl Position {
             ),
         };
 
+        if m.kingside_castling || m.queenside_castling {
+            if m.kingside_castling {
+                let (king_sq, rook_sq) = match self.player_to_move {
+                    Player::White => (4, 7),
+                    Player::Black => (60, 63),
+                };
+                friendly.king = friendly.king.unset_bit(king_sq).set_bit(king_sq + 2);
+                friendly.rooks = friendly.rooks.unset_bit(rook_sq).set_bit(rook_sq - 2);
+            } else if m.queenside_castling {
+                let (king_sq, rook_sq) = match self.player_to_move {
+                    Player::White => (4, 0),
+                    Player::Black => (60, 56),
+                };
+                friendly.king = friendly.king.unset_bit(king_sq).set_bit(king_sq - 2);
+                friendly.rooks = friendly.rooks.unset_bit(rook_sq).set_bit(rook_sq + 3);
+            }
+            *kingside = false;  // can't castle twice :)
+            *queenside = false;
+
+            self.update();
+            self.player_to_move = self.player_to_move.opposite();
+            return;
+        }
+
         let bb = friendly.piece_to_bb(m.piece);
 
+        // Update castling rules
         if m.piece == Piece::King {
             *kingside = false;
             *queenside = false;
@@ -402,16 +427,12 @@ impl Position {
         }
 
         *bb = bb.unset_bit(m.from).set_bit(m.to);
-
         if m.capture {
             hostile.unset_bit(m.to);
         }
 
         self.update();
-        self.player_to_move = match self.player_to_move {
-            Player::White => Player::Black,
-            Player::Black => Player::White,
-        };
+        self.player_to_move = self.player_to_move.opposite();
     }
 
     fn update(&mut self) {
@@ -595,6 +616,58 @@ mod tests {
         assert_eq!(pos.b.king, bit(41));
         assert_eq!(pos.b.queens, bit(18));
         assert_eq!(pos.b.all, bit(18) | bit(41));
+    }
+
+    #[test]
+    fn make_move_white_kingside_castling() {
+        let mut pos = Position::from_fen("rn1qkbnr/ppp2ppp/3p4/4p3/2B1P1b1/5N2/PPPP1PPP/RNBQK2R w KQkq - 2 4");
+        let m = Move::castling(Player::White, CastlingSide::KingSide);
+        let save = pos;
+        pos.make_move(&m);
+        assert_eq!(pos.w.all, save.w.all & !(bit(4) | bit(7)) | bit(5) | bit(6));
+        assert_eq!(pos.occupied, save.occupied & !(bit(4) | bit(7)) | bit(5) | bit(6));
+        assert_eq!(pos.b, save.b);
+        assert_eq!(pos.w.king, bit(6));
+        assert_eq!(pos.w.rooks, bit(0) | bit(5));
+    }
+
+    #[test]
+    fn make_move_black_kingside_castling() {
+        let mut pos = Position::from_fen("rnbqk2r/pppp1ppp/5n2/2b1p3/4P3/3PBN2/PPP2PPP/RN1QKB1R b KQkq - 4 4");
+        let m = Move::castling(Player::Black, CastlingSide::KingSide);
+        let save = pos;
+        pos.make_move(&m);
+        assert_eq!(pos.b.all, save.b.all & !(bit(60) | bit(63)) | bit(61) | bit(62));
+        assert_eq!(pos.occupied, save.occupied & !(bit(60) | bit(63)) | bit(61) | bit(62));
+        assert_eq!(pos.w, save.w);
+        assert_eq!(pos.b.king, bit(62));
+        assert_eq!(pos.b.rooks, bit(56) | bit(61));
+    }
+
+    #[test]
+    fn make_move_white_queenside_castling() {
+        let mut pos = Position::from_fen("rn2k1nr/ppp2ppp/3pbq2/2b1p2Q/4P3/2NPB3/PPP2PPP/R3KBNR w KQkq - 4 6");
+        let m = Move::castling(Player::White, CastlingSide::QueenSide);
+        let save = pos;
+        pos.make_move(&m);
+        assert_eq!(pos.w.all, save.w.all & !(bit(0) | bit(4)) | bit(2) | bit(3));
+        assert_eq!(pos.occupied, save.occupied & !(bit(0) | bit(4)) | bit(2) | bit(3));
+        assert_eq!(pos.b, save.b);
+        assert_eq!(pos.w.king, bit(2));
+        assert_eq!(pos.w.rooks, bit(3) | bit(7));
+    }
+
+    #[test]
+    fn make_move_black_queenside_castling() {
+        let mut pos = Position::from_fen("r3kbnr/ppp2ppp/2npbq2/4p1N1/4P3/2NPB3/PPP2PPP/R2QKB1R b KQkq - 7 6");
+        let m = Move::castling(Player::Black, CastlingSide::QueenSide);
+        let save = pos;
+        pos.make_move(&m);
+        assert_eq!(pos.b.all, save.b.all & !(bit(56) | bit(60)) | bit(58) | bit(59));
+        assert_eq!(pos.occupied, save.occupied & !(bit(56) | bit(60)) | bit(58) | bit(59));
+        assert_eq!(pos.w, save.w);
+        assert_eq!(pos.b.king, bit(58));
+        assert_eq!(pos.b.rooks, bit(59) | bit(63));
     }
 
     #[test]
