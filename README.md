@@ -3,9 +3,11 @@ Hobby-level, bitboard-representation chess engine
 
 TODO list towards a minimal-working prototype:
 - [ ] Move generation:
-    - [ ] Implement castling
-    - [ ] Discard illegal moves / generate only legal moves
+    - [x] Implement castling
+    - [x] Discard illegal moves ~~/ generate only legal moves~~
     - [ ] Thoroughly debug all the `perft` tests
+        - [x] Implement per-move output (Stockfish-like divide)
+        - [ ] `depth = 3`, initial position, wrong node counts for some moves (see #1)
     - [ ] Time the `perft` function. Is it fast enough?
 - [ ] Searching the tree:
     - [ ] Naive material evaluation function
