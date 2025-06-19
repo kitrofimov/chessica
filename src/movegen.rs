@@ -78,11 +78,11 @@ fn generate_pseudo_pawn_moves(pos: &Position, moves: &mut Vec<Move>) {
     add_pawn_moves(moves, ep_right, right_offset, true, false, true);
 }
 
-fn knight_attacks(_pos: &Position, sq: usize, friendly: u64) -> u64 {
+pub fn knight_attacks(_pos: &Position, sq: usize, friendly: u64) -> u64 {
     KNIGHT_ATTACKS[sq] & !friendly
 }
 
-fn bishop_attacks(pos: &Position, sq: usize, friendly: u64) -> u64 {
+pub fn bishop_attacks(pos: &Position, sq: usize, friendly: u64) -> u64 {
     let mask = BISHOP_MASKS[sq];
     let magic = BISHOP_MAGICS[sq];
     let shift = BISHOP_MAGICS_SHIFT[sq];
@@ -91,7 +91,7 @@ fn bishop_attacks(pos: &Position, sq: usize, friendly: u64) -> u64 {
     BISHOP_ATTACK_TABLES[sq][hash] & !friendly
 }
 
-fn rook_attacks(pos: &Position, sq: usize, friendly: u64) -> u64 {
+pub fn rook_attacks(pos: &Position, sq: usize, friendly: u64) -> u64 {
     let mask = ROOK_MASKS[sq];
     let magic = ROOK_MAGICS[sq];
     let shift = ROOK_MAGICS_SHIFT[sq];
@@ -100,13 +100,13 @@ fn rook_attacks(pos: &Position, sq: usize, friendly: u64) -> u64 {
     ROOK_ATTACK_TABLES[sq][hash] & !friendly
 }
 
-fn queen_attacks(pos: &Position, sq: usize, friendly: u64) -> u64 {
+pub fn queen_attacks(pos: &Position, sq: usize, friendly: u64) -> u64 {
     let rook_attacks = rook_attacks(pos, sq, friendly);
     let bishop_attacks = bishop_attacks(pos, sq, friendly);
     rook_attacks | bishop_attacks
 }
 
-fn king_attacks(_pos: &Position, sq: usize, friendly: u64) -> u64 {
+pub fn king_attacks(_pos: &Position, sq: usize, friendly: u64) -> u64 {
     KING_ATTACKS[sq] & !friendly
 }
 

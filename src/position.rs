@@ -1,4 +1,6 @@
 use crate::utility::*;
+use crate::constants::*;
+use crate::movegen::*;
 
 #[derive(Debug, PartialEq, Eq, Hash, Copy, Clone)]
 #[repr(u8)]
@@ -381,6 +383,31 @@ impl Position {
         self.b.update();
         self.occupied = self.w.all | self.b.all;
     }
+
+    pub fn is_square_attacked(&self, sq: usize, by_player: Player) -> bool {
+        let friend = match by_player {
+            Player::White => &self.w,
+            Player::Black => &self.b,
+        };
+
+        // All the possible pieces' positions, which could attack this square
+        let pawn = match by_player {
+            Player::White => PAWN_ATTACKS_BLACK[sq],  // reversing intentionally, questioning:
+            Player::Black => PAWN_ATTACKS_WHITE[sq],  // "what could have attacked this square?"
+        };
+        let knight = knight_attacks(self, sq, 0x0);
+        let bishop = bishop_attacks(self, sq, 0x0);
+        let rook = rook_attacks(self, sq, 0x0);
+        let queen = queen_attacks(self, sq, 0x0);
+        let king = king_attacks(self, sq, 0x0);
+
+        if pawn & friend.pawns > 0 || knight & friend.knights > 0 ||
+           bishop & friend.bishops > 0 || rook & friend.rooks > 0 ||
+           queen & friend.queens > 0 || king & friend.king > 0 {
+            return true;
+        }
+        false
+    }
 }
 
 
@@ -523,5 +550,16 @@ mod tests {
         assert_eq!(pos.b.king, bit(41));
         assert_eq!(pos.b.queens, bit(18));
         assert_eq!(pos.b.all, bit(18) | bit(41));
+    }
+
+    #[test]
+    fn is_square_attacked_endgame() {
+        let pos = Position::from_fen("8/3r1k2/8/4N3/1Q5q/8/2K5/8 b - - 0 1");
+        assert_eq!(pos.is_square_attacked(53, Player::White), true);
+        assert_eq!(pos.is_square_attacked(51, Player::White), true);
+        assert_eq!(pos.is_square_attacked(20, Player::White), false);
+        assert_eq!(pos.is_square_attacked(25, Player::Black), true);
+        assert_eq!(pos.is_square_attacked(52, Player::Black), true);
+        assert_eq!(pos.is_square_attacked(10, Player::Black), false);
     }
 }
