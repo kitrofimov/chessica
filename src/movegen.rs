@@ -35,30 +35,15 @@ fn generate_pseudo_pawn_moves(pos: &Position, moves: &mut Vec<Move>) {
     let empty = !pos.occupied;
     let en_passant_bb = pos.en_passant_square.map(|sq| 1u64 << sq).unwrap_or(0);
     let (pawns, enemy, left_offset, forward_offset, right_offset,
-            start_rank, promo_rank, mask_right, mask_left) =
-        if pos.whites_turn {
-            (
-                pos.w.pawns,
-                pos.b.all,
-                7,
-                8,
-                9,
-                RANK[2],
-                RANK[8],
-                !FILE_H,
-                !FILE_A,
-            )
-        } else {
-            (
-                pos.b.pawns,
-                pos.w.all,
-                -7,
-                -8,
-                -9,
-                RANK[7],
-                RANK[1],
-                !FILE_A,
-                !FILE_H,
+         start_rank, promo_rank, mask_right, mask_left) =
+        match pos.player_to_move {
+            Player::White => (
+                pos.w.pawns, pos.b.all, 7, 8, 9,
+                RANK[2], RANK[8], !FILE_H, !FILE_A,
+            ),
+            Player::Black => (
+                pos.b.pawns, pos.w.all, -7, -8, -9,
+                RANK[7], RANK[1], !FILE_A, !FILE_H,
             )
         };
 
@@ -126,7 +111,10 @@ fn king_attacks(_pos: &Position, sq: usize, friendly: u64) -> u64 {
 }
 
 fn generate_pseudo_moves_for_piece(pos: &Position, piece_type: Piece, moves: &mut Vec<Move>) {
-    let (my_set, enemy_set) = if pos.whites_turn { (&pos.w, &pos.b) } else { (&pos.b, &pos.w) };
+    let (my_set, enemy_set) = match pos.player_to_move {
+        Player::White => (&pos.w, &pos.b),
+        Player::Black => (&pos.b, &pos.w),
+    };
     let friendly = my_set.all;
     let hostile = enemy_set.all;
 

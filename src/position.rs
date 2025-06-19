@@ -177,13 +177,19 @@ impl CastlingRights {
 }
 
 
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub enum Player {
+    White, Black
+}
+
+
 /// Uses [Little-Endian Rank-File Mapping](https://www.chessprogramming.org/Square_Mapping_Considerations#Little-Endian_Rank-File_Mapping)
 #[derive(Copy, Clone)]
 pub struct Position {
     pub w: BitboardSet,
     pub b: BitboardSet,
     pub occupied: u64,
-    pub whites_turn: bool,
+    pub player_to_move: Player,
     pub en_passant_square: Option<u8>,
     pub castling: CastlingRights,
 }
@@ -238,7 +244,7 @@ impl std::fmt::Debug for Position {
             writeln!(f)?;
         }
         writeln!(f, "  a b c d e f g h")?;
-        writeln!(f, "Turn: {}", if self.whites_turn { "White" } else { "Black" })
+        writeln!(f, "Turn: {:?}", self.player_to_move)
     }
 }
 
@@ -264,7 +270,7 @@ impl Position {
                 king:    0x0800000000000000,
             },
             occupied: 0xFFFF00000000FFFF,
-            whites_turn: true,
+            player_to_move: Player::White,
             en_passant_square: None,
             castling: CastlingRights::default(),
         }
@@ -323,17 +329,26 @@ impl Position {
 
         Position {
             w, b, occupied,
-            whites_turn: side_to_move == "w",
+            player_to_move: match side_to_move {
+                "w" => Player::White,
+                "b" => Player::Black,
+                _ => Player::White  // default to white
+            },
             en_passant_square,
             castling,
         }
     }
 
     pub fn make_move(&mut self, m: &Move) {
-        let (friendly, hostile, kingside, queenside) = if self.whites_turn {
-            (&mut self.w, &mut self.b, &mut self.castling.white_kingside, &mut self.castling.white_queenside)
-        } else {
-            (&mut self.b, &mut self.w, &mut self.castling.black_kingside, &mut self.castling.black_queenside)
+        let (friendly, hostile, kingside, queenside) = match self.player_to_move {
+            Player::White => (
+                &mut self.w, &mut self.b,
+                &mut self.castling.white_kingside,&mut self.castling.white_queenside
+            ),
+            Player::Black => (
+                &mut self.b, &mut self.w,
+                &mut self.castling.black_kingside, &mut self.castling.black_queenside
+            ),
         };
 
         let bb = friendly.piece_to_bb(m.piece);
@@ -355,7 +370,10 @@ impl Position {
         }
 
         self.update();
-        self.whites_turn = !self.whites_turn;
+        self.player_to_move = match self.player_to_move {
+            Player::White => Player::Black,
+            Player::Black => Player::White,
+        };
     }
 
     fn update(&mut self) {
@@ -388,7 +406,7 @@ mod tests {
         assert_eq!(pos.b.king,    0x1000000000000000);
         assert_eq!(pos.b.all,     0xFFFF000000000000);
         assert_eq!(pos.occupied,  0xFFFF00000000FFFF);
-        assert_eq!(pos.whites_turn, true);
+        assert_eq!(pos.player_to_move, Player::White);
     }
 
     #[test]
@@ -409,7 +427,7 @@ mod tests {
         assert_eq!(pos.b.king,    0x0);
         assert_eq!(pos.b.all,     0x0);
         assert_eq!(pos.occupied,  0x0);
-        assert_eq!(pos.whites_turn, false);
+        assert_eq!(pos.player_to_move, Player::Black);
     }
 
     #[test]
@@ -432,7 +450,7 @@ mod tests {
         assert_eq!(pos.b.all,     bit(27) | bit(50) | bit(60));
 
         assert_eq!(pos.occupied,  bit(4) | bit(9) | bit(27) | bit(38) | bit(50) | bit(60));
-        assert_eq!(pos.whites_turn, true);
+        assert_eq!(pos.player_to_move, Player::White);
     }
 
     #[test]
