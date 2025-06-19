@@ -80,6 +80,8 @@ pub struct Move {
     pub capture: bool,
     pub promotion: Option<Piece>,
     pub en_passant: bool,
+    pub kingside_castling: bool,
+    pub queenside_castling: bool,
 }
 
 impl Move {
@@ -90,7 +92,9 @@ impl Move {
             piece,
             capture,
             promotion: None,
-            en_passant: false
+            en_passant: false,
+            kingside_castling: false,
+            queenside_castling: false,
         }
     }
 
@@ -102,17 +106,47 @@ impl Move {
             capture,
             promotion,
             en_passant,
+            kingside_castling: false,
+            queenside_castling: false,
+        }
+    }
+
+    pub fn castling(player: Player, side: CastlingSide) -> Self {
+        Move {
+            from: match player {
+                Player::White => 4,
+                Player::Black => 60,
+            },
+            to: 0,
+            piece: Piece::King,
+            capture: false,
+            promotion: None,
+            en_passant: false,
+            kingside_castling: match side {
+                CastlingSide::KingSide => true,
+                CastlingSide::QueenSide => false,
+            },
+            queenside_castling: match side {
+                CastlingSide::KingSide => false,
+                CastlingSide::QueenSide => true,
+            }
         }
     }
 }
 
 
+pub enum CastlingSide {
+    KingSide,
+    QueenSide
+}
+
+
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub struct CastlingRights {
-    white_kingside: bool,
-    white_queenside: bool,
-    black_kingside: bool,
-    black_queenside: bool,
+    pub white_kingside: bool,
+    pub white_queenside: bool,
+    pub black_kingside: bool,
+    pub black_queenside: bool,
 }
 
 impl Default for CastlingRights {
@@ -146,15 +180,6 @@ impl ToString for CastlingRights {
 }
 
 impl CastlingRights {
-    fn no() -> Self {
-        CastlingRights {
-            white_kingside: false,
-            white_queenside: false,
-            black_kingside: false,
-            black_queenside: false
-        }
-    }
-
     fn from_string(s: &str) -> Self {
         let mut rights = CastlingRights {
             white_kingside: false,
@@ -365,12 +390,14 @@ impl Position {
         let bb = friendly.piece_to_bb(m.piece);
 
         if m.piece == Piece::King {
-            self.castling = CastlingRights::no()
+            *kingside = false;
+            *queenside = false;
         } else if m.piece == Piece::Rook && !(*kingside == false && *queenside == false) {
-            if *bb & bit(0) > 0 {  // a1
-                *kingside = false;
-            } else if *bb & bit(7) > 0 {  // h1
-                *queenside = false
+            // TODO: magic numbers are bad!
+            if *bb & (bit(0) | bit(56)) > 0 {  // Rook on a1 or a8 moves
+                *queenside = false;
+            } else if *bb & (bit(7) | bit(63)) > 0 {  // Rook on h1 or h8 moves
+                *kingside = false
             }
         }
 
@@ -393,7 +420,7 @@ impl Position {
         self.occupied = self.w.all | self.b.all;
     }
 
-    fn is_square_attacked(&self, sq: usize, by_player: Player) -> bool {
+    pub fn is_square_attacked(&self, sq: usize, by_player: Player) -> bool {
         let friend = match by_player {
             Player::White => &self.w,
             Player::Black => &self.b,

@@ -10,7 +10,54 @@ pub fn pseudo_moves(pos: Position) -> Vec<Move> {
     generate_pseudo_moves_for_piece(&pos, Piece::Rook, &mut moves);
     generate_pseudo_moves_for_piece(&pos, Piece::Queen, &mut moves);
     generate_pseudo_moves_for_piece(&pos, Piece::King, &mut moves);
+    generate_pseudo_castling_moves(&pos, &mut moves);
     moves
+}
+
+fn generate_pseudo_castling_moves(pos: &Position, moves: &mut Vec<Move>) {
+    let (mut kingside_mask, mut queenside_mask, king_bb) =
+        match pos.player_to_move {
+            Player::White => (
+                bit(4) | bit(5) | bit(6),
+                bit(2) | bit(3) | bit(4),
+                bit(4)
+            ),
+            Player::Black => (
+                bit(60) | bit(61) | bit(62),
+                bit(58) | bit(59) | bit(60),
+                bit(60)
+            ),
+        };
+
+    let white_kingside = pos.castling.white_kingside && pos.player_to_move == Player::White;
+    let white_queenside = pos.castling.white_queenside && pos.player_to_move == Player::White;
+    let black_kingside = pos.castling.black_kingside && pos.player_to_move == Player::Black;
+    let black_queenside = pos.castling.black_queenside && pos.player_to_move == Player::Black;
+
+    let kingside_empty = pos.occupied & kingside_mask == king_bb;
+    let queenside_empty = pos.occupied & queenside_mask == king_bb;
+
+    let enemy = pos.player_to_move.opposite();
+
+    let mut kingside_not_attacked = true;
+    while kingside_mask != 0 {
+        let sq = pop_lsb(&mut kingside_mask);
+        kingside_not_attacked = kingside_not_attacked && !pos.is_square_attacked(sq.into(), enemy);
+    };
+
+    let mut queenside_not_attacked = true;
+    while queenside_mask != 0 {
+        let sq = pop_lsb(&mut queenside_mask);
+        queenside_not_attacked = queenside_not_attacked && !pos.is_square_attacked(sq.into(), enemy);
+    };
+
+    if (white_kingside || black_kingside) && kingside_empty && kingside_not_attacked {
+        moves.push(Move::castling(pos.player_to_move, CastlingSide::KingSide));
+    }
+
+    if (white_queenside || black_queenside) && queenside_empty && queenside_not_attacked {
+        moves.push(Move::castling(pos.player_to_move, CastlingSide::QueenSide));
+    }
 }
 
 fn add_pawn_moves(moves: &mut Vec<Move>, to_mask: u64, offset: i8, capture: bool, promotion: bool, en_passant: bool) {
@@ -479,5 +526,31 @@ mod tests {
 
         let moves_set: HashSet<Move> = moves.into_iter().collect();
         assert_eq!(moves_set, expected);
+    }
+
+    #[test]
+    fn pseudo_castling_moves_midgame1() {
+        let pos = Position::from_fen("rnb1k1nr/pppp1ppp/3b1q2/4p3/2BPP3/2P2N2/PP3PPP/RNBQK2R w KQkq - 0 1");
+        let mut moves = Vec::new();
+        generate_pseudo_castling_moves(&pos, &mut moves);
+        assert_eq!(moves.len(), 1);
+        assert_eq!(moves[0], Move::castling(Player::White, CastlingSide::KingSide));
+    }
+
+    #[test]
+    fn pseudo_castling_moves_midgame2() {
+        let pos = Position::from_fen("r3kbnr/ppp2ppp/2np2b1/4p2q/4P3/5PP1/PPPP3P/RNBQKBNR b KQkq - 0 1");
+        let mut moves = Vec::new();
+        generate_pseudo_castling_moves(&pos, &mut moves);
+        assert_eq!(moves.len(), 1);
+        assert_eq!(moves[0], Move::castling(Player::Black, CastlingSide::QueenSide));
+    }
+
+    #[test]
+    fn pseudo_castling_moves_should_generate_nothing() {
+        let pos = Position::from_fen("r3kbnr/ppp2ppp/2np2b1/4p2q/4P3/3P1PPB/PPP4P/RNBQK1NR b KQkq - 0 1");
+        let mut moves = Vec::new();
+        generate_pseudo_castling_moves(&pos, &mut moves);
+        assert_eq!(moves.len(), 0);
     }
 }
