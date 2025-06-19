@@ -24,10 +24,19 @@ impl Game {
         pseudo_moves(*pos)
     }
 
-    pub fn make_move(&mut self, m: &Move) {
+    pub fn try_to_make_move(&mut self, m: &Move) -> bool {
         let mut pos = *self.positions.last().unwrap();
         pos.make_move(m);
+
+        // Check legality of a move (is player that made the move still in check?)
+        // pos.make_move already flipped the flag, so we flip it the second time
+        // terrible workaround, but works
+        if pos.is_king_in_check(pos.player_to_move.opposite()) {
+            return false;
+        }
+
         self.positions.push(pos);
+        true
     }
 
     pub fn unmake_move(&mut self) {

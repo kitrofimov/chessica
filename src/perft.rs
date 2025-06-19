@@ -9,7 +9,10 @@ pub fn perft(game: &mut Game, depth: usize) -> u64 {
     let mut nodes = 0;
 
     for m in &moves {
-        game.make_move(m);
+        let legal = game.try_to_make_move(m);
+        if !legal {
+            continue;
+        }
         nodes += perft(game, depth-1);
         game.unmake_move();
     }

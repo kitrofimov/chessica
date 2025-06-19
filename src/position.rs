@@ -184,6 +184,15 @@ pub enum Player {
     White, Black
 }
 
+impl Player {
+    pub fn opposite(&self) -> Self {
+        match self {
+            Player::White => Player::Black,
+            Player::Black => Player::White
+        }
+    }
+}
+
 
 /// Uses [Little-Endian Rank-File Mapping](https://www.chessprogramming.org/Square_Mapping_Considerations#Little-Endian_Rank-File_Mapping)
 #[derive(Copy, Clone)]
@@ -384,7 +393,7 @@ impl Position {
         self.occupied = self.w.all | self.b.all;
     }
 
-    pub fn is_square_attacked(&self, sq: usize, by_player: Player) -> bool {
+    fn is_square_attacked(&self, sq: usize, by_player: Player) -> bool {
         let friend = match by_player {
             Player::White => &self.w,
             Player::Black => &self.b,
@@ -407,6 +416,15 @@ impl Position {
             return true;
         }
         false
+    }
+
+    pub fn is_king_in_check(&self, player: Player) -> bool {
+        let mut king_bb = match player {
+            Player::White => self.w.king,
+            Player::Black => self.b.king,
+        };
+        let sq = pop_lsb(&mut king_bb) as usize;
+        self.is_square_attacked(sq, player.opposite())
     }
 }
 
@@ -561,5 +579,26 @@ mod tests {
         assert_eq!(pos.is_square_attacked(25, Player::Black), true);
         assert_eq!(pos.is_square_attacked(52, Player::Black), true);
         assert_eq!(pos.is_square_attacked(10, Player::Black), false);
+    }
+
+    #[test]
+    fn is_king_in_check_midgame_1() {
+        let pos = Position::from_fen("r1bqkb1r/ppp2ppp/5n2/1B4Q1/1n1P2N1/2N5/PPP2PPP/R1B1K2R b KQkq - 0 1");
+        assert_eq!(pos.is_king_in_check(Player::White), false);
+        assert_eq!(pos.is_king_in_check(Player::Black), true);
+    }
+
+    #[test]
+    fn is_king_in_check_midgame_2() {
+        let pos = Position::from_fen("r1bqk1nr/pppp2pp/2n5/1B2pp2/1b1PP3/5N2/PPP2PPP/RNBQK2R w KQkq - 0 1");
+        assert_eq!(pos.is_king_in_check(Player::White), true);
+        assert_eq!(pos.is_king_in_check(Player::Black), false);
+    }
+
+    #[test]
+    fn is_king_in_check_endgame() {
+        let pos = Position::from_fen("R6k/8/7K/8/8/1b6/8/8 b - - 0 1");
+        assert_eq!(pos.is_king_in_check(Player::White), false);
+        assert_eq!(pos.is_king_in_check(Player::Black), true);
     }
 }
