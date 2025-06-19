@@ -7,6 +7,6 @@ fn main() {
         .expect("Please provide a valid integer as the first argument.");
 
     let mut game = Game::default();
-    let nodes = perft(&mut game, depth);
+    let nodes = perft(&mut game, depth, 0);
     println!("{} nodes (depth = {} half-moves)", nodes, depth);
 }
