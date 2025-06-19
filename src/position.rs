@@ -13,6 +13,19 @@ pub enum Piece {
     King,
 }
 
+impl Piece {
+    fn to_char(&self) -> &str {
+        match self {
+            Piece::Pawn => "",
+            Piece::Knight => "N",
+            Piece::Bishop => "B",
+            Piece::Rook => "R",
+            Piece::Queen => "Q",
+            Piece::King => "K",
+        }
+    }
+}
+
 
 pub type Bitboard = u64;
 
@@ -82,6 +95,20 @@ pub struct Move {
     pub en_passant: bool,
     pub kingside_castling: bool,
     pub queenside_castling: bool,
+}
+
+impl ToString for Move {
+    // Long algebraic notation
+    fn to_string(&self) -> String {
+        let mut s = String::new();
+        s += self.piece.to_char();
+        s += &square_idx_to_string(self.from);
+        s += &square_idx_to_string(self.to);
+        if let Some(promotion_piece) = self.promotion {
+            s += promotion_piece.to_char();
+        }
+        s
+    }
 }
 
 impl Move {
