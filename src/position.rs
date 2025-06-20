@@ -457,21 +457,20 @@ impl Position {
             return;
         }
 
-        let bb = friendly.piece_to_bb(m.piece);
-
         // Update castling rules
         if m.piece == Piece::King {
             *kingside = false;
             *queenside = false;
         } else if m.piece == Piece::Rook && !(*kingside == false && *queenside == false) {
             // TODO: magic numbers are bad!
-            if *bb & (bit(0) | bit(56)) > 0 {  // Rook on a1 or a8 moves
+            if m.from == 0 || m.from == 56 {  // Rook on a1 or a8 moves
                 *queenside = false;
-            } else if *bb & (bit(7) | bit(63)) > 0 {  // Rook on h1 or h8 moves
+            } else if m.from == 7 || m.from == 63 {  // Rook on h1 or h8 moves
                 *kingside = false
             }
         }
 
+        let bb = friendly.piece_to_bb(m.piece);
         *bb = bb.unset_bit(m.from).set_bit(m.to);
         if m.capture {
             hostile.unset_bit(m.to);
