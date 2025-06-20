@@ -479,6 +479,17 @@ impl Position {
             }
         } else if m.capture {
             hostile.unset_bit(m.to);
+
+            // If we take on the rooks' starting squares, make castling not possible
+            // What if it is not rooks on these squares already? Then the variable
+            // is already false and it won't hurt to unset it again
+            match m.to {
+                0  => self.castling.white_queenside = false,
+                7  => self.castling.white_kingside = false,
+                56 => self.castling.black_queenside = false,
+                63 => self.castling.black_kingside = false,
+                _ => {}
+            }
         }
 
         self.update();
