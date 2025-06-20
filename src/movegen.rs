@@ -19,12 +19,12 @@ fn generate_pseudo_castling_moves(pos: &Position, moves: &mut Vec<Move>) {
         match pos.player_to_move {
             Player::White => (
                 bit(4) | bit(5) | bit(6),
-                bit(2) | bit(3) | bit(4),
+                bit(1) | bit(2) | bit(3) | bit(4),
                 bit(4)
             ),
             Player::Black => (
                 bit(60) | bit(61) | bit(62),
-                bit(58) | bit(59) | bit(60),
+                bit(57) | bit(58) | bit(59) | bit(60),
                 bit(60)
             ),
         };
@@ -46,6 +46,7 @@ fn generate_pseudo_castling_moves(pos: &Position, moves: &mut Vec<Move>) {
     };
 
     let mut queenside_not_attacked = true;
+    pop_lsb(&mut queenside_mask);  // we do not need this bit
     while queenside_mask != 0 {
         let sq = pop_lsb(&mut queenside_mask);
         queenside_not_attacked = queenside_not_attacked && !pos.is_square_attacked(sq.into(), enemy);
