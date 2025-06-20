@@ -21,7 +21,7 @@ impl Game {
 
     pub fn generate_pseudo_moves(&self) -> Vec<Move> {
         let pos = self.positions.last().unwrap();
-        pseudo_moves(*pos)
+        pseudo_moves(pos)
     }
 
     pub fn try_to_make_move(&mut self, m: &Move) -> bool {

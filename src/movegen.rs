@@ -2,7 +2,7 @@ use crate::position::*;
 use crate::utility::*;
 use crate::constants::*;
 
-pub fn pseudo_moves(pos: Position) -> Vec<Move> {
+pub fn pseudo_moves(pos: &Position) -> Vec<Move> {
     let mut moves = Vec::new();
     generate_pseudo_pawn_moves  (&pos, &mut moves);
     generate_pseudo_moves_for_piece(&pos, Piece::Knight, &mut moves);
