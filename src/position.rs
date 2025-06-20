@@ -470,8 +470,15 @@ impl Position {
             }
         }
 
-        let bb = friendly.piece_to_bb(m.piece);
-        *bb = bb.unset_bit(m.from).set_bit(m.to);
+        if let Some(promotion_piece) = m.promotion {
+            friendly.pawns = friendly.pawns.unset_bit(m.from);
+            let bb = friendly.piece_to_bb(promotion_piece);
+            *bb = bb.set_bit(m.to);
+        } else {
+            let bb = friendly.piece_to_bb(m.piece);
+            *bb = bb.unset_bit(m.from).set_bit(m.to);
+        }
+
         if m.capture && m.en_passant {
             match self.player_to_move {
                 Player::White => hostile.unset_bit(m.to - 8),
