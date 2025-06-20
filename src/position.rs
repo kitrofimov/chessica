@@ -93,6 +93,7 @@ pub struct Move {
     pub capture: bool,
     pub promotion: Option<Piece>,
     pub en_passant: bool,
+    pub double_push: bool,
     pub kingside_castling: bool,
     pub queenside_castling: bool,
 }
@@ -120,6 +121,7 @@ impl Move {
             capture,
             promotion: None,
             en_passant: false,
+            double_push: false,
             kingside_castling: false,
             queenside_castling: false,
         }
@@ -133,6 +135,7 @@ impl Move {
             capture,
             promotion,
             en_passant,
+            double_push: to.wrapping_sub(from) == 16 || from.wrapping_sub(to) == 16,
             kingside_castling: false,
             queenside_castling: false,
         }
@@ -149,6 +152,7 @@ impl Move {
             capture: false,
             promotion: None,
             en_passant: false,
+            double_push: false,
             kingside_castling: match side {
                 CastlingSide::KingSide => true,
                 CastlingSide::QueenSide => false,
@@ -456,6 +460,12 @@ impl Position {
         *bb = bb.unset_bit(m.from).set_bit(m.to);
         if m.capture {
             hostile.unset_bit(m.to);
+        }
+
+        if m.double_push {
+            self.en_passant_square = Some((m.from + m.to) / 2);
+        } else {
+            self.en_passant_square = None;
         }
 
         self.update();
