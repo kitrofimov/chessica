@@ -6,7 +6,7 @@ pub fn pseudo_moves(pos: Position) -> Vec<Move> {
     let mut moves = Vec::new();
     generate_pseudo_pawn_moves  (&pos, &mut moves);
     generate_pseudo_moves_for_piece(&pos, Piece::Knight, &mut moves);
-    generate_pseudo_moves_for_piece(&pos, Piece::King, &mut moves);
+    generate_pseudo_moves_for_piece(&pos, Piece::Bishop, &mut moves);
     generate_pseudo_moves_for_piece(&pos, Piece::Rook, &mut moves);
     generate_pseudo_moves_for_piece(&pos, Piece::Queen, &mut moves);
     generate_pseudo_moves_for_piece(&pos, Piece::King, &mut moves);
