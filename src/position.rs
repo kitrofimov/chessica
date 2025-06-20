@@ -147,7 +147,16 @@ impl Move {
                 Player::White => 4,
                 Player::Black => 60,
             },
-            to: 0,
+            to: match player {
+                Player::White => match side {
+                    CastlingSide::KingSide  => 6,
+                    CastlingSide::QueenSide => 2,
+                },
+                Player::Black => match side {
+                    CastlingSide::KingSide  => 62,
+                    CastlingSide::QueenSide => 58,
+                },
+            },
             piece: Piece::King,
             capture: false,
             promotion: None,
@@ -420,11 +429,11 @@ impl Position {
 
         if m.kingside_castling || m.queenside_castling {
             if m.kingside_castling {
-                let (king_sq, rook_sq) = match self.player_to_move {
-                    Player::White => (4, 7),
-                    Player::Black => (60, 63),
+                let rook_sq = match self.player_to_move {
+                    Player::White => 7,
+                    Player::Black => 63,
                 };
-                friendly.king = friendly.king.unset_bit(king_sq).set_bit(king_sq + 2);
+                friendly.king = friendly.king.unset_bit(m.from).set_bit(m.to);
                 friendly.rooks = friendly.rooks.unset_bit(rook_sq).set_bit(rook_sq - 2);
             } else if m.queenside_castling {
                 let (king_sq, rook_sq) = match self.player_to_move {
