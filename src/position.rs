@@ -427,6 +427,12 @@ impl Position {
             ),
         };
 
+        if m.double_push {
+            self.en_passant_square = Some((m.from + m.to) / 2);
+        } else {
+            self.en_passant_square = None;
+        }
+
         if m.kingside_castling || m.queenside_castling {
             if m.kingside_castling {
                 let rook_sq = match self.player_to_move {
@@ -469,12 +475,6 @@ impl Position {
         *bb = bb.unset_bit(m.from).set_bit(m.to);
         if m.capture {
             hostile.unset_bit(m.to);
-        }
-
-        if m.double_push {
-            self.en_passant_square = Some((m.from + m.to) / 2);
-        } else {
-            self.en_passant_square = None;
         }
 
         self.update();
