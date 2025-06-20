@@ -472,7 +472,12 @@ impl Position {
 
         let bb = friendly.piece_to_bb(m.piece);
         *bb = bb.unset_bit(m.from).set_bit(m.to);
-        if m.capture {
+        if m.capture && m.en_passant {
+            match self.player_to_move {
+                Player::White => hostile.unset_bit(m.to - 8),
+                Player::Black => hostile.unset_bit(m.to + 8),
+            }
+        } else if m.capture {
             hostile.unset_bit(m.to);
         }
 
