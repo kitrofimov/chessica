@@ -19,6 +19,10 @@ impl Game {
         }
     }
 
+    pub fn position(&self) -> &Position {
+        self.positions.last().unwrap()
+    }
+
     pub fn generate_pseudo_moves(&self) -> Vec<Move> {
         let pos = self.positions.last().unwrap();
         pseudo_moves(pos)
