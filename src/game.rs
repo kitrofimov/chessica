@@ -20,6 +20,12 @@ impl Game {
         }
     }
 
+    pub fn from_fen(fen: &str) -> Game {
+        Game {
+            positions: vec![Position::from_fen(fen)]
+        }
+    }
+
     pub fn position(&self) -> &Position {
         self.positions.last().unwrap()
     }
@@ -46,6 +52,19 @@ impl Game {
 
     pub fn unmake_move(&mut self) {
         self.positions.pop();
+    }
+
+    // UTTERLY INSANE IMPLEMENTATION that works
+    // this does not need to be *really* fast (called rarely), it's fast *enough*
+    pub fn try_to_make_uci_move(&mut self, uci: &str) -> bool {
+        let moves = self.generate_pseudo_moves();
+        for m in &moves {
+            if m.to_string() == uci {
+                self.try_to_make_move(m);
+                return true;
+            }
+        }
+        false
     }
 
     fn minimax_alphabeta(&mut self, depth: usize, mut alpha: i32, mut beta: i32, maximize: bool) -> i32 {

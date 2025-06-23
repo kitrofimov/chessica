@@ -3,7 +3,6 @@ use crate::constants::*;
 use crate::movegen::*;
 
 #[derive(Debug, PartialEq, Eq, Hash, Copy, Clone)]
-#[repr(u8)]
 pub enum Piece {
     Pawn = 0,
     Knight,
@@ -17,11 +16,11 @@ impl Piece {
     fn to_char(&self) -> &str {
         match self {
             Piece::Pawn   => "",
-            Piece::Knight => "N",
-            Piece::Bishop => "B",
-            Piece::Rook   => "R",
-            Piece::Queen  => "Q",
-            Piece::King   => "K",
+            Piece::Knight => "n",
+            Piece::Bishop => "b",
+            Piece::Rook   => "r",
+            Piece::Queen  => "q",
+            Piece::King   => "k",
         }
     }
 
@@ -131,10 +130,9 @@ pub struct Move {
 }
 
 impl ToString for Move {
-    // Long algebraic notation
+    // Long algebraic notation, UCI-compliant
     fn to_string(&self) -> String {
         let mut s = String::new();
-        s += self.piece.to_char();
         s += &square_idx_to_string(self.from);
         s += &square_idx_to_string(self.to);
         if let Some(promotion_piece) = self.promotion {
@@ -352,7 +350,7 @@ impl std::fmt::Debug for Position {
             writeln!(f)?;
         }
         writeln!(f, "  a b c d e f g h")?;
-        writeln!(f, "Turn: {:?}", self.player_to_move)
+        write!(f, "Turn: {:?}", self.player_to_move)
     }
 }
 
