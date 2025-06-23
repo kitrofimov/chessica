@@ -46,7 +46,7 @@ mod tests {
     #[test]
     // https://www.chessprogramming.org/Perft_Results#Position_2
     fn perft_kiwipete_1_5() {
-        let mut game = Game::new(Position::from_fen("r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - "));
+        let mut game = Game::new(Position::from_fen("r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1"));
         assert_eq!(perft(&mut game, 1, 0), 48);
         assert_eq!(perft(&mut game, 2, 0), 2_039);
         assert_eq!(perft(&mut game, 3, 0), 97_862);
@@ -57,7 +57,7 @@ mod tests {
     #[test]
     // https://www.chessprogramming.org/Perft_Results#Position_3
     fn perft_position3_1_5() {
-        let mut game = Game::new(Position::from_fen("8/2p5/3p4/KP5r/1R3p1k/8/4P1P1/8 w - - 0 1 "));
+        let mut game = Game::new(Position::from_fen("8/2p5/3p4/KP5r/1R3p1k/8/4P1P1/8 w - - 0 1"));
         assert_eq!(perft(&mut game, 1, 0), 14);
         assert_eq!(perft(&mut game, 2, 0), 191);
         assert_eq!(perft(&mut game, 3, 0), 2_812);
