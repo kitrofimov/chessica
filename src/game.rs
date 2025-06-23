@@ -1,5 +1,5 @@
 use std::cmp::{max, min};
-use crate::{movegen::pseudo_moves, position::{Move, Position}};
+use crate::{movegen::pseudo_moves, position::{Move, Player, Position}};
 
 pub struct Game {
     positions: Vec<Position>,
@@ -88,12 +88,16 @@ impl Game {
     pub fn find_best_move(&mut self, depth: usize) -> Move {
         let mut best_score = i32::MIN;
         let mut best_move = None;
+        let maximize = match self.position().player_to_move {
+            Player::White => true,
+            Player::Black => false,
+        };
         for m in self.generate_pseudo_moves() {
             let legal = self.try_to_make_move(&m);
             if !legal {
                 continue;
             }
-            let score = self.minimax_alphabeta(depth - 1, i32::MIN, i32::MAX, false);
+            let score = self.minimax_alphabeta(depth - 1, i32::MIN, i32::MAX, maximize);
             self.unmake_move();
 
             if score > best_score {
