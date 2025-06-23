@@ -2,19 +2,20 @@
 Hobby-level, bitboard-representation chess engine
 
 TODO list towards a minimal-working prototype:
-- [ ] Move generation:
+- [x] Move generation:
     - [x] Implement castling
     - [x] Discard illegal moves ~~/ generate only legal moves~~
     - [x] Thoroughly debug all the `perft` tests
         - [x] Implement per-move output (Stockfish-like divide)
         - [x] Issues #1, #3, #4, #5, #6
         - Move generation seems to be right now!
-    - [ ] Optimize the `perft` function
-        - [ ] Calculate nodes per second
-- [ ] Searching the tree:
-    - [ ] Naive material evaluation function
-    - [ ] Minimax searching algorithm
-    - [ ] Alpha-beta pruning
+    - [x] Optimize the `perft` function
+        - [x] Calculate nodes per second
+            - `--release`: ~23 million nodes per second... enough for now
+- [x] Searching the tree:
+    - [x] Naive material evaluation function
+    - [x] Minimax searching algorithm
+    - [x] Alpha-beta pruning
 - [ ] Universal Chess Interface (UCI)
 
 ## Building
