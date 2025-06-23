@@ -16,12 +16,29 @@ pub enum Piece {
 impl Piece {
     fn to_char(&self) -> &str {
         match self {
-            Piece::Pawn => "",
+            Piece::Pawn   => "",
             Piece::Knight => "N",
             Piece::Bishop => "B",
-            Piece::Rook => "R",
-            Piece::Queen => "Q",
-            Piece::King => "K",
+            Piece::Rook   => "R",
+            Piece::Queen  => "Q",
+            Piece::King   => "K",
+        }
+    }
+
+    fn all_variants() -> &'static [Piece] {
+        &[Piece::Pawn, Piece::Knight, Piece::Bishop,
+          Piece::Rook, Piece::Queen, Piece::King]
+    }
+
+    // Used in evaluation function
+    fn value(&self) -> i32 {
+        match self {
+            Piece::Pawn   => 100,
+            Piece::Knight => 300,
+            Piece::Bishop => 330,
+            Piece::Rook   => 500,
+            Piece::Queen  => 900,
+            Piece::King   => 100_000,
         }
     }
 }
@@ -62,7 +79,7 @@ impl BitboardSet {
                    self.rooks | self.queens  | self.king;
     }
 
-    fn piece_to_bb(&mut self, piece: Piece) -> &mut Bitboard {
+    fn piece_to_bb_mut(&mut self, piece: Piece) -> &mut Bitboard {
         match piece {
             Piece::Knight => &mut self.knights,
             Piece::Bishop => &mut self.bishops,
@@ -70,6 +87,17 @@ impl BitboardSet {
             Piece::Queen  => &mut self.queens,
             Piece::King   => &mut self.king,
             Piece::Pawn   => &mut self.pawns,
+        }
+    }
+
+    fn piece_to_bb(&self, piece: Piece) -> &Bitboard {
+        match piece {
+            Piece::Knight => &self.knights,
+            Piece::Bishop => &self.bishops,
+            Piece::Rook   => &self.rooks,
+            Piece::Queen  => &self.queens,
+            Piece::King   => &self.king,
+            Piece::Pawn   => &self.pawns,
         }
     }
 
@@ -81,6 +109,10 @@ impl BitboardSet {
         self.rooks   = self.rooks.unset_bit(n);
         self.queens  = self.queens.unset_bit(n);
         self.king    = self.king.unset_bit(n);
+    }
+
+    fn count(&self, piece: Piece) -> u32 {
+        self.piece_to_bb(piece).count_ones()
     }
 }
 
@@ -472,10 +504,10 @@ impl Position {
 
         if let Some(promotion_piece) = m.promotion {
             friendly.pawns = friendly.pawns.unset_bit(m.from);
-            let bb = friendly.piece_to_bb(promotion_piece);
+            let bb = friendly.piece_to_bb_mut(promotion_piece);
             *bb = bb.set_bit(m.to);
         } else {
-            let bb = friendly.piece_to_bb(m.piece);
+            let bb = friendly.piece_to_bb_mut(m.piece);
             *bb = bb.unset_bit(m.from).set_bit(m.to);
         }
 
@@ -541,6 +573,15 @@ impl Position {
         };
         let sq = pop_lsb(&mut king_bb) as usize;
         self.is_square_attacked(sq, player.opposite())
+    }
+
+    pub fn evaluate(&self) -> i32 {
+        let mut score = 0;
+        for piece in Piece::all_variants() {
+            score += piece.value() * self.w.count(*piece) as i32;
+            score -= piece.value() * self.b.count(*piece) as i32;
+        }
+        score
     }
 }
 
