@@ -1,3 +1,4 @@
+use std::time::Instant;
 use chess_engine::{game::*, perft::*};
 
 fn main() {
@@ -7,6 +8,12 @@ fn main() {
         .expect("Please provide a valid integer as the first argument.");
 
     let mut game = Game::default();
+    let start = Instant::now();
     let nodes = perft(&mut game, depth, 0);
-    println!("{} nodes (depth = {} half-moves)", nodes, depth);
+    let duration = start.elapsed();
+    let seconds = duration.as_secs_f64();
+
+    println!("\nNodes searched: {}", nodes);
+    println!("Time: {:.3} sec", seconds);
+    println!("Nodes per second: {:.2}", nodes as f64 / seconds);
 }
