@@ -6,6 +6,11 @@ pub use rook_magics::*;
 pub use bishop_magics::*;
 use super::utility::bit;
 
+
+pub const NAME: &str = "chess-engine";
+pub const AUTHOR: &str = "Kirill Trofimov";
+
+
 const fn generate_knight_attack(square: u8) -> u64 {
     let bb = 1u64 << square;
 

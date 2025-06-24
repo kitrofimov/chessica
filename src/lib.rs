@@ -4,3 +4,4 @@ pub mod position;
 pub mod movegen;
 pub mod game;
 pub mod perft;
+pub mod uci;

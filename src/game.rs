@@ -1,6 +1,7 @@
 use std::cmp::{max, min};
 use crate::{movegen::pseudo_moves, position::{Move, Player, Position}};
 
+#[derive(Clone)]
 pub struct Game {
     positions: Vec<Position>,
 }
