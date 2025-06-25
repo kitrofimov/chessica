@@ -57,6 +57,8 @@ impl Game {
 
     // UTTERLY INSANE IMPLEMENTATION that works
     // this does not need to be *really* fast (called rarely), it's fast *enough*
+    // TODO: ^^^ is this really true? `position startpos moves ...` goes after
+    // every move of a human...
     pub fn try_to_make_uci_move(&mut self, uci: &str) -> bool {
         let moves = self.generate_pseudo_moves();
         for m in &moves {
