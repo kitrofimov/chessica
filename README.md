@@ -22,8 +22,12 @@ TODO list towards a minimal-working prototype:
     - [ ] Mate evaluation?
 - [ ] Universal Chess Interface (UCI)
     - [x] Should be handling CLI input on the second thread
-    - [ ] Add `go depth X`, `go movetime X`, `go wtime X btime Y winc Z binc W`
-    - [ ] Try to hook this up to some GUI
+    - [x] Add `go depth X`, `go movetime X`, `go wtime X btime Y winc Z binc W`
+    - [x] Try to hook this up to some GUI
+        - Seems to work! [Here](https://pastebin.com/bDw9PsFe) is the wonderful game we played - the engine seems to go crazy with the evaluation after some time...
+        - [ ] Evaluation = `2147483647`?
+- [ ] Refactoring!!!
+    - [ ] Separation of concepts!!! Why do I have `Position` and `Game`? Should `perft` be inside `Game`? `go_*` functions in the `uci` module seem messy, there are two search functions... why? 
 
 ## Building
 
