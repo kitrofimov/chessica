@@ -24,9 +24,9 @@ fn main() {
             "ucinewgame" => uci::ucinewgame(&mut game),
             "position"   => uci::position(&mut game, &tokens),
             "go"         => uci::go(&mut game, &tokens, &mut stop_flag, &mut search_thread),
-            "stop"       => uci::stop(&mut stop_flag, &mut search_thread),
+            "stop"       => uci::stop_search(&mut stop_flag, &mut search_thread),
             "quit" => {
-                uci::stop(&mut stop_flag, &mut search_thread);
+                uci::stop_search(&mut stop_flag, &mut search_thread);
                 break;
             }
             "d" => println!("{:?}", game.position()),

@@ -19,6 +19,7 @@ TODO list towards a minimal-working prototype:
 - [ ] Subtleties:
     - [ ] 50 move rule
     - [ ] What does happen when minimax stumbles upon checkmate?
+    - [ ] Mate evaluation?
 - [ ] Universal Chess Interface (UCI)
     - [x] Should be handling CLI input on the second thread
     - [ ] Add `go depth X`, `go movetime X`, `go wtime X btime Y winc Z binc W`

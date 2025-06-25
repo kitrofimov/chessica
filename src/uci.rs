@@ -1,8 +1,8 @@
-use std::sync::{Arc, atomic::{AtomicBool, Ordering}};
+use std::{sync::{atomic::{AtomicBool, Ordering}, Arc}, time::Duration};
 use std::thread::{self, JoinHandle};
 use std::time::Instant;
 
-use crate::constants::{NAME, AUTHOR};
+use crate::{constants::{AUTHOR, NAME}, position::Player};
 use crate::game::Game;
 use crate::perft::*;
 
@@ -20,7 +20,7 @@ pub fn ucinewgame(game: &mut Game) {
     *game = Game::default();
 }
 
-pub fn stop(
+pub fn stop_search(
     stop_flag: &mut Arc<AtomicBool>,
     search_thread: &mut Option<JoinHandle<()>>,
 ) {
@@ -28,6 +28,7 @@ pub fn stop(
     if let Some(handle) = search_thread.take() {
         let _ = handle.join();
     }
+    stop_flag.store(false, Ordering::Relaxed);
 }
 
 pub fn position(game: &mut Game, tokens: &[&str]) {
@@ -56,35 +57,232 @@ pub fn position(game: &mut Game, tokens: &[&str]) {
     }
 }
 
+#[derive(Debug)]
+struct GoParams {
+    perft:    Option<usize>,
+    movetime: Option<usize>,
+    depth:    Option<usize>,
+    infinite: bool,
+    wtime:    Option<usize>,
+    btime:    Option<usize>,
+    winc:     Option<usize>,
+    binc:     Option<usize>,
+}
+
+fn parse_go_params(tokens: &[&str]) -> GoParams {
+    let mut params = GoParams {
+        perft:    None,
+        movetime: None,
+        depth:    None,
+        infinite: false,
+        wtime:    None,
+        btime:    None,
+        winc:     None,
+        binc:     None,
+    };
+
+    // Treat `go` as `go infinite`
+    if tokens.len() == 1 {
+        params.infinite = true;
+        return params;
+    }
+
+    let mut i = 1;  // skip the "go"
+    let parse = |target: &mut Option<usize>, i: &mut usize| {
+        if let Some(value) = tokens.get(*i + 1) {
+            *target = value.parse().ok();
+            *i += 1;
+        }
+    };
+
+    while i < tokens.len() {
+        match tokens[i] {
+            "perft"    => parse(&mut params.perft,    &mut i),
+            "movetime" => parse(&mut params.movetime, &mut i),
+            "depth"    => parse(&mut params.depth,    &mut i),
+            "wtime"    => parse(&mut params.wtime,    &mut i),
+            "btime"    => parse(&mut params.btime,    &mut i),
+            "winc"     => parse(&mut params.winc,     &mut i),
+            "binc"     => parse(&mut params.binc,     &mut i),
+            "infinite" => params.infinite = true,
+            _ => {}
+        }
+        i += 1;
+    }
+    params
+}
+
+fn movetime(game: &mut Game, wtime: usize, btime: usize, winc: usize, binc: usize) -> usize {
+    let (time, inc) = if game.position().player_to_move == Player::White {
+        (wtime, winc)
+    } else {
+        (btime, binc)
+    };
+
+    let moves_remaining = 30;  // TODO: make this adaptive!
+    let base_time = time / moves_remaining;
+    let inc_bonus = inc * 8 / 10;  // 80% of the increment
+
+    base_time + inc_bonus
+}
+
 pub fn go(
     game: &mut Game,
     tokens: &[&str],
     stop_flag: &mut Arc<AtomicBool>,
     search_thread: &mut Option<JoinHandle<()>>,
 ) {
-    if tokens.len() >= 3 && tokens[1] == "perft" {
-        stop(stop_flag, search_thread);
+    let params = parse_go_params(tokens);
 
-        if let Ok(depth) = tokens[2].parse::<usize>() {
-            // TODO: this cloning shouldn't be a huge performance penalty right?
-            let mut game_clone = game.clone();
-            *stop_flag = Arc::new(AtomicBool::new(false));
-            let stop_flag_clone = Arc::clone(stop_flag);
-
-            *search_thread = Some(thread::spawn(move || {
-                let start = Instant::now();
-                let nodes = perft(&mut game_clone, depth, 0, &stop_flag_clone);
-                let duration = start.elapsed();
-                let seconds = duration.as_secs_f64();
-
-                if nodes == PERFT_INTERRUPTED {
-                    println!("perft interrupted");
-                } else {
-                    println!("Nodes searched: {}", nodes);
-                    println!("Time: {:.3} sec", seconds);
-                    println!("Nodes per second: {:.2}", nodes as f64 / seconds);
-                }
-            }));
-        }
+    if let Some(perft_depth) = params.perft {
+        go_perft(game, perft_depth, stop_flag, search_thread);
+    } else if let Some(movetime) = params.movetime {
+        go_movetime(game, movetime, stop_flag, search_thread);
+    } else if let Some(depth) = params.depth {
+        go_depth(game, depth, stop_flag, search_thread);
+    } else if params.infinite {
+        go_infinite(game, stop_flag, search_thread);
+    } else if params.wtime.is_some() && params.btime.is_some() {
+        let wtime = params.wtime.unwrap();
+        let btime = params.btime.unwrap();
+        let winc = params.winc.unwrap_or(0);
+        let binc = params.binc.unwrap_or(0);
+        let ms = movetime(game, wtime, btime, winc, binc);
+        go_movetime(game, ms, stop_flag, search_thread);
     }
+}
+
+fn go_perft(game: &mut Game, depth: usize, stop_flag: &mut Arc<AtomicBool>, search_thread: &mut Option<JoinHandle<()>>) {
+    // Stop current search (if there is some)
+    stop_search(stop_flag, search_thread);
+
+    // TODO: this cloning shouldn't be a huge performance penalty right?
+    // this is also the case for other `go_*` functions
+    let mut game_clone = game.clone();
+    let stop_flag_clone = Arc::clone(stop_flag);
+
+    *search_thread = Some(thread::spawn(move || {
+        let start = Instant::now();
+        let nodes = perft(&mut game_clone, depth, 0, &stop_flag_clone);
+        let duration = start.elapsed();
+        let seconds = duration.as_secs_f64();
+
+        if nodes == PERFT_INTERRUPTED {
+            println!("perft interrupted");
+        } else {
+            println!("Nodes searched: {}", nodes);
+            println!("Time: {:.3} sec", seconds);
+            println!("Nodes per second: {:.2}", nodes as f64 / seconds);
+        }
+    }));
+}
+
+// TODO: not really accurate: checks the time only after each finished depth level
+fn go_movetime(
+    game: &mut Game,
+    movetime: usize,
+    stop_flag: &mut Arc<AtomicBool>,
+    search_thread: &mut Option<JoinHandle<()>>,
+) {
+    stop_search(stop_flag, search_thread);
+    let mut game_clone = game.clone();
+    let stop_flag_clone = Arc::clone(stop_flag);
+
+    *search_thread = Some(thread::spawn(move || {
+        let start = Instant::now();
+        let time_limit = Duration::from_millis(movetime as u64);
+        let mut last_complete_best_move = None;
+
+        for depth in 1.. {
+            let start_depth = Instant::now();
+            let (m, eval, nodes) = game_clone.find_best_move(depth, &stop_flag_clone);
+            let after = Instant::now();
+
+            if stop_flag_clone.load(Ordering::Relaxed) {
+                break;
+            }
+
+            last_complete_best_move = Some(m);
+
+            println!(
+                "info depth {} score cp {} time {} nodes {} nps {}",
+                depth, eval, (after - start_depth).as_millis(), nodes, nodes as f64 / ((after - start_depth).as_secs_f64())
+            );
+
+            if after - start >= time_limit {
+                break;
+            }
+        }
+
+        if let Some(m) = last_complete_best_move {
+            println!("bestmove {}", m.to_string());
+        } else {
+            println!("bestmove 0000");
+        }
+    }));
+}
+
+fn go_depth(game: &mut Game, depth: usize, stop_flag: &mut Arc<AtomicBool>, search_thread: &mut Option<JoinHandle<()>>) {
+    stop_search(stop_flag, search_thread);
+    let mut game_clone = game.clone();
+    let stop_flag_clone = Arc::clone(stop_flag);
+
+    *search_thread = Some(thread::spawn(move || {
+        let mut last_complete_best_move = None;
+
+        // Still iterative deepening here, because the engine should return a
+        // fully computed move after recieving `stop`
+        for d in 1..=depth {
+            let start_depth = Instant::now();
+            let (m, eval, nodes) = game_clone.find_best_move(d, &stop_flag_clone);
+            let after = Instant::now();
+
+            if stop_flag_clone.load(Ordering::Relaxed) {
+                break;
+            }
+
+            last_complete_best_move = Some(m);
+            println!(
+                "info depth {} score cp {} time {} nodes {} nps {}",
+                d, eval, (after - start_depth).as_millis(), nodes, nodes as f64 / ((after - start_depth).as_secs_f64())
+            );
+        }
+
+        if let Some(m) = last_complete_best_move {
+            println!("bestmove {}", m.to_string());
+        } else {
+            println!("bestmove 0000");
+        }
+    }));
+}
+
+fn go_infinite(game: &mut Game, stop_flag: &mut Arc<AtomicBool>, search_thread: &mut Option<JoinHandle<()>>) {
+    stop_search(stop_flag, search_thread);
+    let mut game_clone = game.clone();
+    let stop_flag_clone = Arc::clone(stop_flag);
+
+    *search_thread = Some(thread::spawn(move || {
+        let mut last_complete_best_move = None;
+        for depth in 1.. {
+            let start_depth = Instant::now();
+            let (m, eval, nodes) = game_clone.find_best_move(depth, &stop_flag_clone);
+            let after = Instant::now();
+
+            if stop_flag_clone.load(Ordering::Relaxed) {
+                break;
+            }
+
+            last_complete_best_move = Some(m);
+            println!(
+                "info depth {} score cp {} time {} nodes {} nps {}",
+                depth, eval, (after - start_depth).as_millis(), nodes, nodes as f64 / ((after - start_depth).as_secs_f64())
+            );
+        }
+
+        if let Some(m) = last_complete_best_move {
+            println!("bestmove {}", m.to_string());
+        } else {
+            println!("bestmove 0000");
+        }
+    }));
 }

@@ -1,4 +1,4 @@
-use std::cmp::{max, min};
+use std::{cmp::{max, min}, sync::{atomic::{AtomicBool, Ordering}, Arc}};
 use crate::{movegen::pseudo_moves, position::{Move, Player, Position}};
 
 #[derive(Clone)]
@@ -68,16 +68,31 @@ impl Game {
         false
     }
 
-    fn minimax_alphabeta(&mut self, depth: usize, mut alpha: i32, mut beta: i32, maximize: bool) -> i32 {
+    // Returns (eval, unwind)
+    fn minimax_alphabeta(
+        &mut self,
+        depth: usize,
+        mut alpha: i32,
+        mut beta: i32,
+        maximize: bool,
+        stop_flag: &Arc<AtomicBool>,
+        nodes: &mut u64
+    ) -> (i32, bool) {
+        *nodes += 1;
+
+        if stop_flag.load(Ordering::Relaxed) {
+            return (self.position().evaluate(), true);
+        }
+
         if depth == 0 {
-            return self.position().evaluate();
+            return (self.position().evaluate(), false);
         }
 
         let moves = self.generate_pseudo_moves();
 
         // TODO: checkmate/stalemate? Should I handle this specifically?
         if moves.is_empty() {
-            return self.position().evaluate();
+            return (self.position().evaluate(), false);
         }
 
         let mut best = if maximize { i32::MIN } else { i32::MAX };
@@ -86,45 +101,52 @@ impl Game {
             if !legal {
                 continue;
             }
-            let score = self.minimax_alphabeta(depth - 1, alpha, beta, !maximize);
+            let (eval, unwind) = self.minimax_alphabeta(depth - 1, alpha, beta, !maximize, stop_flag, nodes);
             self.unmake_move();
+            if unwind {
+                return (best, true);
+            }
+
             if maximize {
-                best = max(best, score);
-                alpha = max(alpha, score);
+                best = max(best, eval);
+                alpha = max(alpha, eval);
                 if beta <= alpha {
                     break;
                 }
             } else {
-                best = min(best, score);
-                beta = min(beta, score);
+                best = min(best, eval);
+                beta = min(beta, eval);
                 if beta <= alpha {
                     break;
                 }
             }
         }
-        best
+        (best, false)
     }
 
-    pub fn find_best_move(&mut self, depth: usize) -> Move {
-        let mut best_score = i32::MIN;
+    pub fn find_best_move(&mut self, depth: usize, stop_flag: &Arc<AtomicBool>) -> (Move, i32, u64) {
         let mut best_move = None;
-        let maximize = match self.position().player_to_move {
-            Player::White => true,
-            Player::Black => false,
+        let (mut best_score, maximize) = match self.position().player_to_move {
+            Player::White => (i32::MIN, true),
+            Player::Black => (i32::MAX, false),
         };
+
+        let mut nodes = 0;
+
         for m in self.generate_pseudo_moves() {
             let legal = self.try_to_make_move(&m);
             if !legal {
                 continue;
             }
-            let score = self.minimax_alphabeta(depth - 1, i32::MIN, i32::MAX, maximize);
+            let (eval, _) = self.minimax_alphabeta(depth - 1, i32::MIN, i32::MAX, maximize, stop_flag, &mut nodes);
             self.unmake_move();
 
-            if score > best_score {
-                best_score = score;
+            if (maximize && eval > best_score) || (!maximize && eval < best_score) {
+                best_score = eval;
                 best_move = Some(m);
             }
         }
-        best_move.unwrap()  // TODO: panicking is bad. What if there are no moves?
+
+        (best_move.unwrap(), best_score, nodes)  // TODO: panicking is bad. What if there are no moves?
     }
 }
