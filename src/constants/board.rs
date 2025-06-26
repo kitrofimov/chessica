@@ -1,0 +1,26 @@
+pub const RANK: [u64; 8+1] = [
+    0,                  // Rank 0 (unused, for convenience)
+    0x00000000000000FF, // Rank 1
+    0x000000000000FF00, // Rank 2
+    0x0000000000FF0000, // Rank 3
+    0x00000000FF000000, // Rank 4
+    0x000000FF00000000, // Rank 5
+    0x0000FF0000000000, // Rank 6
+    0x00FF000000000000, // Rank 7
+    0xFF00000000000000, // Rank 8
+];
+
+pub const FILE_A: u64 = 0x0101010101010101; // 0b00000001...
+pub const FILE_B: u64 = 0x0202020202020202; // 0b00000010...
+pub const FILE_C: u64 = 0x0404040404040404; // 0b00000100...
+pub const FILE_D: u64 = 0x0808080808080808; // 0b00001000...
+pub const FILE_E: u64 = 0x1010101010101010; // 0b00010000...
+pub const FILE_F: u64 = 0x2020202020202020; // 0b00100000...
+pub const FILE_G: u64 = 0x4040404040404040; // 0b01000000...
+pub const FILE_H: u64 = 0x8080808080808080; // 0b10000000...
+
+pub const FILE: [u64; 8+1] = [
+    0, // File 0 (unused, for convenience)
+    FILE_A, FILE_B, FILE_C, FILE_D,
+    FILE_E, FILE_F, FILE_G, FILE_H,
+];

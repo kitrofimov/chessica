@@ -2,6 +2,11 @@ pub const fn bit(sq: usize) -> u64 {
     1u64 << sq
 }
 
+// List of squares to bitboard
+pub fn sq_to_bb(lst: &[u8]) -> u64 {
+    lst.iter().fold(0u64, |s, &a| s | bit(a.into()))
+}
+
 pub fn pop_lsb(bitboard: &mut u64) -> u8 {
     let result = bitboard.trailing_zeros() as u8;
     *bitboard &= *bitboard - 1;

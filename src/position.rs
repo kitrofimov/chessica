@@ -1,5 +1,5 @@
 use crate::utility::*;
-use crate::constants::*;
+use crate::constants::attacks;
 use crate::movegen::*;
 
 #[derive(Debug, PartialEq, Eq, Hash, Copy, Clone)]
@@ -546,9 +546,10 @@ impl Position {
         };
 
         // All the possible pieces' positions, which could attack this square
+        // reversing intentionally, questioning: "what could have attacked this square?"
         let pawn = match by_player {
-            Player::White => PAWN_ATTACKS_BLACK[sq],  // reversing intentionally, questioning:
-            Player::Black => PAWN_ATTACKS_WHITE[sq],  // "what could have attacked this square?"
+            Player::White => attacks::PAWN_ATTACKS_BLACK[sq],
+            Player::Black => attacks::PAWN_ATTACKS_WHITE[sq],
         };
         let knight = knight_attacks(self, sq, 0x0);
         let bishop = bishop_attacks(self, sq, 0x0);

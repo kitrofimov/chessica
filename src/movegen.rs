@@ -1,6 +1,6 @@
 use crate::position::*;
 use crate::utility::*;
-use crate::constants::*;
+use crate::constants::{board::*, attacks::*, magics::*, masks::*};
 
 pub fn pseudo_moves(pos: &Position) -> Vec<Move> {
     let mut moves = Vec::new();
