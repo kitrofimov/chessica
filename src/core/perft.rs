@@ -15,7 +15,7 @@ pub fn perft(game: &mut Game, depth: usize, n_calls: usize, stop_flag: &Arc<Atom
         return 1;
     }
 
-    let moves = game.generate_pseudo_moves();
+    let moves = game.pseudo_moves();
     let mut nodes = 0;
 
     for m in &moves {

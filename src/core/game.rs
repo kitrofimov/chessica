@@ -38,16 +38,16 @@ impl Game {
         self.positions.last().unwrap()
     }
 
-    pub fn generate_pseudo_moves(&self) -> Vec<Move> {
-        let pos = self.positions.last().unwrap();
-        pseudo_moves(pos)
+    pub fn pseudo_moves(&self) -> Vec<Move> {
+        pseudo_moves(self.position())
     }
 
     pub fn try_to_make_move(&mut self, m: &Move) -> bool {
-        let pos = *self.positions.last().unwrap();
-        let new = make_move(&pos, m);
+        let pos = self.position();
+        let new = make_move(pos, m);
 
         // Check legality of a move (is player that made the move still in check?)
+        // Using `pos.player_to_move` because the flag was already flipped in `new`
         if is_king_in_check(&new, pos.player_to_move) {
             return false;
         }
@@ -65,11 +65,10 @@ impl Game {
     // TODO: ^^^ is this really true? `position startpos moves ...` goes after
     // every move of a human...
     pub fn try_to_make_uci_move(&mut self, uci: &str) -> bool {
-        let moves = self.generate_pseudo_moves();
+        let moves = self.pseudo_moves();
         for m in &moves {
             if m.to_string() == uci {
-                self.try_to_make_move(m);
-                return true;
+                return self.try_to_make_move(m);
             }
         }
         false
@@ -95,7 +94,7 @@ impl Game {
             return (evaluate(self.position()), false);
         }
 
-        let moves = self.generate_pseudo_moves();
+        let moves = self.pseudo_moves();
 
         // TODO: checkmate/stalemate? Should I handle this specifically?
         if moves.is_empty() {
@@ -140,7 +139,7 @@ impl Game {
 
         let mut nodes = 0;
 
-        for m in self.generate_pseudo_moves() {
+        for m in self.pseudo_moves() {
             let legal = self.try_to_make_move(&m);
             if !legal {
                 continue;
