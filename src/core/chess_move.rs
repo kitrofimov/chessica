@@ -1,5 +1,6 @@
 use crate::{core::{piece::Piece, player::Player}, utility::square_idx_to_string};
 
+// TODO: will tightly-packing this improve performance?
 #[derive(Debug, PartialEq, Eq, Hash)]
 pub struct Move {
     pub from: u8,
@@ -76,14 +77,8 @@ impl Move {
             promotion: None,
             en_passant: false,
             double_push: false,
-            kingside_castling: match side {
-                CastlingSide::KingSide => true,
-                CastlingSide::QueenSide => false,
-            },
-            queenside_castling: match side {
-                CastlingSide::KingSide => false,
-                CastlingSide::QueenSide => true,
-            }
+            kingside_castling: side == CastlingSide::KingSide,
+            queenside_castling: side == CastlingSide::QueenSide,
         }
     }
 }
@@ -116,6 +111,7 @@ impl Default for CastlingRights {
 }
 
 impl ToString for CastlingRights {
+    // FEN-like castling rights string
     fn to_string(&self) -> String {
         let mut s = String::new();
         if self.white_kingside {
@@ -135,6 +131,7 @@ impl ToString for CastlingRights {
 }
 
 impl CastlingRights {
+    // Parse castling rights from a FEN-like string (KQkq)
     pub fn from_string(s: &str) -> Self {
         let mut rights = CastlingRights {
             white_kingside: false,
