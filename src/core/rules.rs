@@ -63,21 +63,16 @@ fn handle_castling(
     kingside: &mut bool,
     queenside: &mut bool
 ) {
-    if m.kingside_castling {
-        let rook_sq = match who_made_move {
-            Player::White => board::H1,
-            Player::Black => board::H8,
-        };
-        friendly.king = friendly.king.unset_bit(m.from).set_bit(m.to);
-        friendly.rooks = friendly.rooks.unset_bit(rook_sq).set_bit(rook_sq - 2);
-    } else if m.queenside_castling {
-        let (king_sq, rook_sq) = match who_made_move {
-            Player::White => (board::E1, board::A1),
-            Player::Black => (board::E8, board::A8),
-        };
-        friendly.king = friendly.king.unset_bit(king_sq).set_bit(king_sq - 2);
-        friendly.rooks = friendly.rooks.unset_bit(rook_sq).set_bit(rook_sq + 3);
-    }
+    let (rook_from, rook_to) = match (who_made_move, m.kingside_castling, m.queenside_castling) {
+        (Player::White, true, _) => (board::H1, board::F1),
+        (Player::White, _, true) => (board::A1, board::D1),
+        (Player::Black, true, _) => (board::H8, board::F8),
+        (Player::Black, _, true) => (board::A8, board::D8),
+        _ => unreachable!(),
+    };
+    friendly.king = friendly.king.unset_bit(m.from).set_bit(m.to);
+    friendly.rooks = friendly.rooks.unset_bit(rook_from).set_bit(rook_to);
+
     *kingside = false;  // can't castle twice :)
     *queenside = false;
 }
