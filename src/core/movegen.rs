@@ -1,4 +1,9 @@
-use crate::position::{*, CastlingSide::*};
+use crate::core::{
+    position::*,
+    chess_move::{*, CastlingSide::*},
+    piece::Piece,
+    player::Player,
+};
 use crate::utility::*;
 use crate::constants::{board::*, attacks::*, magics::*, masks::*};
 

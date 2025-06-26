@@ -2,7 +2,7 @@ use std::io::{self, BufRead, Write};
 use std::sync::{Arc, atomic::AtomicBool};
 use std::thread::JoinHandle;
 
-use chess_engine::{game::Game, uci};
+use chess_engine::{core::game::Game, uci};
 
 fn main() {
     let stdin = io::stdin();

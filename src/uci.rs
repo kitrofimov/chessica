@@ -2,9 +2,12 @@ use std::{sync::{atomic::{AtomicBool, Ordering}, Arc}, time::Duration};
 use std::thread::{self, JoinHandle};
 use std::time::Instant;
 
-use crate::{constants::{AUTHOR, NAME}, position::Player};
-use crate::game::Game;
-use crate::perft::*;
+use crate::constants::{AUTHOR, NAME};
+use crate::core::{
+    game::Game,
+    player::Player,
+    perft::*,
+};
 
 pub fn uci() {
     println!("id name {}", NAME);

@@ -1,5 +1,5 @@
 use std::{cmp::{max, min}, sync::{atomic::{AtomicBool, Ordering}, Arc}};
-use crate::{movegen::pseudo_moves, position::{Move, Player, Position}};
+use crate::core::{chess_move::*, movegen::pseudo_moves, player::Player, position::*};
 
 #[derive(Clone)]
 pub struct Game {
