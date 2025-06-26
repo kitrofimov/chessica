@@ -1,4 +1,4 @@
-use crate::constants::attacks;
+use crate::constants::{attacks, board};
 use crate::utility::pop_lsb;
 use crate::core::{
     position::Position,
@@ -9,10 +9,10 @@ use crate::core::{
     piece::Piece,
 };
 
-// TODO: what terrible code is this?
 pub fn make_move(pos: &Position, m: &Move) -> Position {
     let mut new = pos.clone();
-    let (friendly, hostile, kingside, queenside) = match pos.player_to_move {
+    let who_made_move = pos.player_to_move;
+    let (friendly, hostile, kingside, queenside) = match who_made_move {
         Player::White => (
             &mut new.w, &mut new.b,
             &mut new.castling.white_kingside, &mut new.castling.white_queenside
@@ -23,81 +23,111 @@ pub fn make_move(pos: &Position, m: &Move) -> Position {
         ),
     };
 
-    if m.double_push {
-        new.en_passant_square = Some((m.from + m.to) / 2);
-    } else {
-        new.en_passant_square = None;
-    }
+    new.en_passant_square = calculate_en_passant_square(m);
 
     if m.kingside_castling || m.queenside_castling {
-        if m.kingside_castling {
-            let rook_sq = match pos.player_to_move {
-                Player::White => 7,
-                Player::Black => 63,
-            };
-            friendly.king = friendly.king.unset_bit(m.from).set_bit(m.to);
-            friendly.rooks = friendly.rooks.unset_bit(rook_sq).set_bit(rook_sq - 2);
-        } else if m.queenside_castling {
-            let (king_sq, rook_sq) = match pos.player_to_move {
-                Player::White => (4, 0),
-                Player::Black => (60, 56),
-            };
-            friendly.king = friendly.king.unset_bit(king_sq).set_bit(king_sq - 2);
-            friendly.rooks = friendly.rooks.unset_bit(rook_sq).set_bit(rook_sq + 3);
-        }
-        *kingside = false;  // can't castle twice :)
-        *queenside = false;
-
-        new.update();
-        new.player_to_move = pos.player_to_move.opposite();
-        return new;
-    }
-
-    // Update castling rules
-    if m.piece == Piece::King {
-        *kingside = false;
-        *queenside = false;
-    } else if m.piece == Piece::Rook && !(*kingside == false && *queenside == false) {
-        // TODO: magic numbers are bad!
-        if m.from == 0 || m.from == 56 {  // Rook on a1 or a8 moves
-            *queenside = false;
-        } else if m.from == 7 || m.from == 63 {  // Rook on h1 or h8 moves
-            *kingside = false
-        }
-    }
-
-    if let Some(promotion_piece) = m.promotion {
-        friendly.pawns = friendly.pawns.unset_bit(m.from);
-        let bb = friendly.piece_to_bb_mut(promotion_piece);
-        *bb = bb.set_bit(m.to);
+        handle_castling(m, friendly, who_made_move, kingside, queenside);
     } else {
-        let bb = friendly.piece_to_bb_mut(m.piece);
-        *bb = bb.unset_bit(m.from).set_bit(m.to);
-    }
+        update_castling_rights(m, kingside, queenside);
 
-    if m.capture && m.en_passant {
-        match pos.player_to_move {
-            Player::White => hostile.unset_bit(m.to - 8),
-            Player::Black => hostile.unset_bit(m.to + 8),
+        if let Some(promotion_piece) = m.promotion {
+            handle_promotion(m, friendly, promotion_piece);
+        } else {
+            handle_non_promotion_move(m, friendly);
         }
-    } else if m.capture {
-        hostile.unset_bit(m.to);
 
-        // If we take on the rooks' starting squares, make castling not possible
-        // What if it is not rooks on these squares already? Then the variable
-        // is already false and it won't hurt to unset it again
-        match m.to {
-            0  => new.castling.white_queenside = false,
-            7  => new.castling.white_kingside = false,
-            56 => new.castling.black_queenside = false,
-            63 => new.castling.black_kingside = false,
-            _ => {}
+        if m.en_passant {
+            handle_en_passant(m, hostile, who_made_move);
+        } else if m.capture {
+            handle_capture(m, hostile, &mut new.castling);
         }
     }
 
     new.update();
-    new.player_to_move = pos.player_to_move.opposite();
+    new.player_to_move = who_made_move.opposite();
     new
+}
+
+fn calculate_en_passant_square(m: &Move) -> Option<u8> {
+    if m.double_push {
+        Some((m.from + m.to) / 2)
+    } else {
+        None
+    }
+}
+
+fn handle_castling(
+    m: &Move,
+    friendly: &mut BitboardSet,
+    who_made_move: Player,
+    kingside: &mut bool,
+    queenside: &mut bool
+) {
+    if m.kingside_castling {
+        let rook_sq = match who_made_move {
+            Player::White => board::H1,
+            Player::Black => board::H8,
+        };
+        friendly.king = friendly.king.unset_bit(m.from).set_bit(m.to);
+        friendly.rooks = friendly.rooks.unset_bit(rook_sq).set_bit(rook_sq - 2);
+    } else if m.queenside_castling {
+        let (king_sq, rook_sq) = match who_made_move {
+            Player::White => (board::E1, board::A1),
+            Player::Black => (board::E8, board::A8),
+        };
+        friendly.king = friendly.king.unset_bit(king_sq).set_bit(king_sq - 2);
+        friendly.rooks = friendly.rooks.unset_bit(rook_sq).set_bit(rook_sq + 3);
+    }
+    *kingside = false;  // can't castle twice :)
+    *queenside = false;
+}
+
+// There is also special code updating castling rights in `handle_capture`
+fn update_castling_rights(m: &Move, kingside: &mut bool, queenside: &mut bool) {
+    if m.piece == Piece::King {
+        *kingside = false;
+        *queenside = false;
+    } else if m.piece == Piece::Rook && !(*kingside == false && *queenside == false) {
+        if m.from == board::A1 || m.from == board::A8 {
+            *queenside = false;
+        } else if m.from == board::H1 || m.from == board::H8 {
+            *kingside = false
+        }
+    }
+}
+
+fn handle_promotion(m: &Move, friendly: &mut BitboardSet, promotion_piece: Piece) {
+    friendly.pawns = friendly.pawns.unset_bit(m.from);
+    let bb = friendly.piece_to_bb_mut(promotion_piece);
+    *bb = bb.set_bit(m.to);
+}
+
+fn handle_non_promotion_move(m: &Move, friendly: &mut BitboardSet) {
+    let bb = friendly.piece_to_bb_mut(m.piece);
+    *bb = bb.unset_bit(m.from).set_bit(m.to);
+}
+
+fn handle_en_passant(m: &Move, hostile: &mut BitboardSet, who_made_move: Player) {
+    match who_made_move {
+        Player::White => hostile.unset_bit(m.to - 8),
+        Player::Black => hostile.unset_bit(m.to + 8),
+    }
+}
+
+fn handle_capture(m: &Move, hostile: &mut BitboardSet, castling: &mut CastlingRights) {
+    hostile.unset_bit(m.to);
+
+    // TODO: was I drunk while writing this comment?
+    // If we take on the rooks' starting squares, make castling not possible
+    // What if it is not rooks on these squares already? Then the variable
+    // is already false and it won't hurt to unset it again
+    match m.to {
+        board::A1 => castling.white_queenside = false,
+        board::H1 => castling.white_kingside = false,
+        board::A8 => castling.black_queenside = false,
+        board::H8 => castling.black_kingside = false,
+        _ => {}
+    }
 }
 
 pub fn is_square_attacked(pos: &Position, sq: usize, by_player: Player) -> bool {
