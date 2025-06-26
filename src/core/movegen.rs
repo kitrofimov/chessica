@@ -1,8 +1,9 @@
 use crate::core::{
-    position::*,
-    chess_move::{*, CastlingSide::*},
+    chess_move::{CastlingSide::*, *},
     piece::Piece,
     player::Player,
+    position::*,
+    rules::is_square_attacked,
 };
 use crate::utility::*;
 use crate::constants::{board::*, attacks::*, magics::*, masks::*};
@@ -56,7 +57,7 @@ fn can_castle(pos: &Position, side: CastlingSide) -> bool {
     // Make sure the king doesn't pass through attacked squares
     while mask != 0 {
         let sq = pop_lsb(&mut mask);
-        if pos.is_square_attacked(sq.into(), pos.player_to_move.opposite()) {
+        if is_square_attacked(&pos, sq.into(), pos.player_to_move.opposite()) {
             return false;
         }
     };

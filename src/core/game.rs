@@ -1,5 +1,12 @@
 use std::{cmp::{max, min}, sync::{atomic::{AtomicBool, Ordering}, Arc}};
-use crate::core::{chess_move::*, movegen::pseudo_moves, player::Player, position::*};
+use crate::core::{
+    chess_move::*,
+    evaluate::evaluate,
+    movegen::pseudo_moves,
+    player::Player,
+    position::*,
+    rules::{is_king_in_check, make_move}
+};
 
 #[derive(Clone)]
 pub struct Game {
@@ -37,17 +44,17 @@ impl Game {
     }
 
     pub fn try_to_make_move(&mut self, m: &Move) -> bool {
-        let mut pos = *self.positions.last().unwrap();
-        pos.make_move(m);
+        let pos = *self.positions.last().unwrap();
+        let new = make_move(&pos, m);
 
         // Check legality of a move (is player that made the move still in check?)
         // pos.make_move already flipped the flag, so we flip it the second time
         // terrible workaround, but works
-        if pos.is_king_in_check(pos.player_to_move.opposite()) {
+        if is_king_in_check(&new, pos.player_to_move.opposite()) {
             return false;
         }
 
-        self.positions.push(pos);
+        self.positions.push(new);
         true
     }
 
@@ -83,18 +90,18 @@ impl Game {
         *nodes += 1;
 
         if stop_flag.load(Ordering::Relaxed) {
-            return (self.position().evaluate(), true);
+            return (evaluate(self.position()), true);
         }
 
         if depth == 0 {
-            return (self.position().evaluate(), false);
+            return (evaluate(self.position()), false);
         }
 
         let moves = self.generate_pseudo_moves();
 
         // TODO: checkmate/stalemate? Should I handle this specifically?
         if moves.is_empty() {
-            return (self.position().evaluate(), false);
+            return (evaluate(self.position()), false);
         }
 
         let mut best = if maximize { i32::MIN } else { i32::MAX };

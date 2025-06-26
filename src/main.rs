@@ -29,7 +29,7 @@ fn main() {
                 uci::stop_search(&mut stop_flag, &mut search_thread);
                 break;
             }
-            "d" => println!("{:?}", game.position()),
+            "d" => println!("{}", game.position()),
             _   => println!("info string Unknown command!")
         }
 
