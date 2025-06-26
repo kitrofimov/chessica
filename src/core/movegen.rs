@@ -35,10 +35,10 @@ fn can_castle(pos: &Position, side: CastlingSide) -> bool {
     };
 
     let mut mask = match (side, pos.player_to_move) {
-        (KingSide,  Player::White) => bit(4)  | bit(5)  | bit(6),
-        (KingSide,  Player::Black) => bit(60) | bit(61) | bit(62),
-        (QueenSide, Player::White) => bit(1)  | bit(2)  | bit(3)  | bit(4),
-        (QueenSide, Player::Black) => bit(57) | bit(58) | bit(59) | bit(60),
+        (KingSide,  Player::White) => sq_to_bb(&[E1, G1, F1]),
+        (KingSide,  Player::Black) => sq_to_bb(&[E8, G8, F8]),
+        (QueenSide, Player::White) => sq_to_bb(&[B1, C1, D1, E1]),
+        (QueenSide, Player::Black) => sq_to_bb(&[B8, C8, D8, E8]),
     };
 
     let has_rights = match (side, pos.player_to_move) {

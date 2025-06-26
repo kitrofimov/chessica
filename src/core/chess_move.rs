@@ -1,4 +1,4 @@
-use crate::{core::{piece::Piece, player::Player}, utility::square_idx_to_string};
+use crate::{constants::board, core::{piece::Piece, player::Player}, utility::square_idx_to_string};
 
 // TODO: will tightly-packing this improve performance?
 #[derive(Debug, PartialEq, Eq, Hash)]
@@ -59,18 +59,14 @@ impl Move {
     pub fn castling(player: Player, side: CastlingSide) -> Self {
         Move {
             from: match player {
-                Player::White => 4,
-                Player::Black => 60,
+                Player::White => board::E1,
+                Player::Black => board::E8,
             },
-            to: match player {
-                Player::White => match side {
-                    CastlingSide::KingSide  => 6,
-                    CastlingSide::QueenSide => 2,
-                },
-                Player::Black => match side {
-                    CastlingSide::KingSide  => 62,
-                    CastlingSide::QueenSide => 58,
-                },
+            to: match (player, side) {
+                (Player::White, CastlingSide::KingSide)  => board::G1,
+                (Player::White, CastlingSide::QueenSide) => board::C1,
+                (Player::Black, CastlingSide::KingSide)  => board::G8,
+                (Player::Black, CastlingSide::QueenSide) => board::C8,
             },
             piece: Piece::King,
             capture: false,
