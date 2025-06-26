@@ -205,6 +205,7 @@ impl Move {
 }
 
 
+#[derive(PartialEq, Eq, Clone, Copy)]
 pub enum CastlingSide {
     KingSide,
     QueenSide
