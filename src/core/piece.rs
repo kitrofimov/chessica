@@ -20,9 +20,9 @@ impl Piece {
         }
     }
 
-    pub fn all_variants() -> &'static [Piece] {
-        &[Piece::Pawn, Piece::Knight, Piece::Bishop,
-          Piece::Rook, Piece::Queen, Piece::King]
+    pub fn all_variants() -> [Piece; 6] {
+        [Piece::Pawn, Piece::Knight, Piece::Bishop,
+         Piece::Rook, Piece::Queen,  Piece::King]
     }
 
     // Used in evaluation function
