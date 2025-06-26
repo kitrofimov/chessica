@@ -28,10 +28,10 @@ impl Game {
         }
     }
 
-    pub fn from_fen(fen: &str) -> Game {
-        Game {
-            positions: vec![Position::from_fen(fen)]
-        }
+    pub fn from_fen(fen: &str) -> Result<Game, FenParseError> {
+        Ok(Game {
+            positions: vec![Position::from_fen(fen)?]
+        })
     }
 
     pub fn position(&self) -> &Position {

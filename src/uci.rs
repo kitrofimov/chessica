@@ -2,7 +2,7 @@ use std::{sync::{atomic::{AtomicBool, Ordering}, Arc}, time::Duration};
 use std::thread::{self, JoinHandle};
 use std::time::Instant;
 
-use crate::constants::{AUTHOR, NAME};
+use crate::{constants::{AUTHOR, NAME}, core::position::FenParseError};
 use crate::core::{
     game::Game,
     player::Player,
@@ -41,10 +41,22 @@ pub fn position(game: &mut Game, tokens: &[&str]) {
 
     let i;
     match tokens[1] {
-        "fen" if tokens.len() >= 8 => {
+        "fen" => {
+            if tokens.len() < 8 {
+                eprintln!("info string Bad FEN! {:?}", FenParseError::BadFieldCount);
+                return;
+            }
             let fen = tokens[2..=7].join(" ");
-            *game = Game::from_fen(&fen);
-            i = 8;
+            match Game::from_fen(&fen) {
+                Ok(parsed) => {
+                    *game = parsed;
+                    i = 8;
+                }
+                Err(e) => {
+                    eprintln!("info string Bad FEN! {:?}", e);
+                    return;
+                }
+            }
         }
         "startpos" => {
             *game = Game::default();

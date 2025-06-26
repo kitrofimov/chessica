@@ -16,6 +16,19 @@ pub struct Position {
     pub castling: CastlingRights,
 }
 
+#[derive(Debug)]
+pub enum FenParseError {
+    BadFieldCount,
+    InvalidPieceChar(char),
+    BadRankCount,
+    BadFileCount,
+    InvalidSide(String),
+    InvalidCastling(String),
+    InvalidEnPassant(String),
+    InvalidHalfmove(String),
+    InvalidFullmove(String),
+}
+
 impl Default for Position {
     fn default() -> Self {
         Position::start()
@@ -103,8 +116,62 @@ impl Position {
         }
     }
 
-    // TODO: not validating FEN in any way. regular expressions?
-    pub fn from_fen(fen: &str) -> Self {
+    fn validate_fen(fen: &str) -> Result<(), FenParseError> {
+        let parts: Vec<&str> = fen.split_whitespace().collect();
+        if parts.len() != 6 {
+            return Err(FenParseError::BadFieldCount);
+        }
+
+        let (placement, side, castling, en_passant, halfmove, fullmove) =
+            (parts[0], parts[1], parts[2], parts[3], parts[4], parts[5]);
+
+        // Validate placement
+        let ranks: Vec<&str> = placement.split('/').collect();
+        if ranks.len() != 8 {
+            return Err(FenParseError::BadRankCount);
+        }
+        for rank in ranks {
+            let mut file_count = 0;
+            for c in rank.chars() {
+                if c.is_digit(10) {
+                    file_count += c.to_digit(10).unwrap();
+                } else if "pnbrqkPNBRQK".contains(c) {
+                    file_count += 1;
+                } else {
+                    return Err(FenParseError::InvalidPieceChar(c));
+                }
+            }
+            if file_count != 8 {
+                return Err(FenParseError::BadFileCount);
+            }
+        }
+
+        if side != "w" && side != "b" {
+            return Err(FenParseError::InvalidSide(side.into()));
+        }
+
+        if castling != "-" && !castling.chars().all(|c| "KQkq".contains(c)) {
+            return Err(FenParseError::InvalidCastling(castling.into()));
+        }
+
+        if en_passant != "-" && square_string_to_idx(en_passant).is_none() {
+            return Err(FenParseError::InvalidEnPassant(en_passant.into()));
+        }
+
+        if halfmove.parse::<u32>().is_err() {
+            return Err(FenParseError::InvalidHalfmove(halfmove.into()));
+        }
+
+        if fullmove.parse::<u32>().ok().filter(|n| *n >= 1).is_none() {
+            return Err(FenParseError::InvalidFullmove(fullmove.into()));
+        }
+
+        Ok(())
+    }
+
+    pub fn from_fen(fen: &str) -> Result<Self, FenParseError> {
+        Self::validate_fen(fen)?;
+
         let mut w = BitboardSet::default();
         let mut b = BitboardSet::default();
 
@@ -155,7 +222,7 @@ impl Position {
         b.update();
         let occupied: u64 = w.all | b.all;
 
-        Position {
+        Ok(Position {
             w, b, occupied,
             player_to_move: match side_to_move {
                 "w" => Player::White,
@@ -164,7 +231,7 @@ impl Position {
             },
             en_passant_square,
             castling,
-        }
+        })
     }
 
     // Mutate fields `w`, `b` and `occupied` so they are correct
@@ -181,8 +248,8 @@ mod tests {
     use super::*;
 
     #[test]
-    fn fen_start() {
-        let pos = Position::from_fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
+    fn fen_start() -> Result<(), FenParseError> {
+        let pos = Position::from_fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")?;
         assert_eq!(pos.w.pawns,   0x000000000000FF00);
         assert_eq!(pos.w.rooks,   0x0000000000000081);
         assert_eq!(pos.w.knights, 0x0000000000000042);
@@ -199,11 +266,12 @@ mod tests {
         assert_eq!(pos.b.all,     0xFFFF000000000000);
         assert_eq!(pos.occupied,  0xFFFF00000000FFFF);
         assert_eq!(pos.player_to_move, Player::White);
+        Ok(())
     }
 
     #[test]
-    fn fen_empty() {
-        let pos = Position::from_fen("8/8/8/8/8/8/8/8 b - - 0 1");
+    fn fen_empty() -> Result<(), FenParseError> {
+        let pos = Position::from_fen("8/8/8/8/8/8/8/8 b - - 0 1")?;
         assert_eq!(pos.w.pawns,   0x0);
         assert_eq!(pos.w.rooks,   0x0);
         assert_eq!(pos.w.knights, 0x0);
@@ -220,11 +288,12 @@ mod tests {
         assert_eq!(pos.b.all,     0x0);
         assert_eq!(pos.occupied,  0x0);
         assert_eq!(pos.player_to_move, Player::Black);
+        Ok(())
     }
 
     #[test]
-    fn fen_endgame() {
-        let pos = Position::from_fen("4r3/2n5/8/6R1/3k4/8/1B6/4K3 w - - 0 1");
+    fn fen_endgame() -> Result<(), FenParseError> {
+        let pos = Position::from_fen("4r3/2n5/8/6R1/3k4/8/1B6/4K3 w - - 0 1")?;
         assert_eq!(pos.w.pawns,   0x0);
         assert_eq!(pos.w.rooks,   bit(38));
         assert_eq!(pos.w.knights, 0x0);
@@ -243,5 +312,6 @@ mod tests {
 
         assert_eq!(pos.occupied,  bit(4) | bit(9) | bit(27) | bit(38) | bit(50) | bit(60));
         assert_eq!(pos.player_to_move, Player::White);
+        Ok(())
     }
 }

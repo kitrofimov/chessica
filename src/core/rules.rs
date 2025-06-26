@@ -1,7 +1,7 @@
 use crate::constants::{attacks, board};
 use crate::utility::pop_lsb;
 use crate::core::{
-    position::Position,
+    position::*,
     bitboard::*,
     chess_move::*,
     movegen::*,
@@ -162,8 +162,8 @@ mod tests {
     use crate::core::piece::Piece;
 
     #[test]
-    fn make_move_knight() {
-        let pos = Position::from_fen("8/1k6/3r4/8/4N3/8/1K6/8 w - - 0 1");
+    fn make_move_knight() -> Result<(), FenParseError> {
+        let pos = Position::from_fen("8/1k6/3r4/8/4N3/8/1K6/8 w - - 0 1")?;
         let m = Move::new(28, 43, Piece::Knight, true);
         let new = make_move(&pos, &m);
         assert_eq!(new.w.king, bit(9));
@@ -175,11 +175,12 @@ mod tests {
         assert_eq!(new.b.all, bit(49));
 
         assert_eq!(new.occupied, bit(9) | bit(43) | bit(49));
+        Ok(())
     }
 
     #[test]
-    fn make_move_rook() {
-        let pos = Position::from_fen("8/8/8/5r2/8/1k6/5Q2/1K6 b - - 0 1");
+    fn make_move_rook() -> Result<(), FenParseError> {
+        let pos = Position::from_fen("8/8/8/5r2/8/1k6/5Q2/1K6 b - - 0 1")?;
         let m = Move::new(37, 13, Piece::Rook, true);
         let new = make_move(&pos, &m);
         assert_eq!(new.w.king, bit(1));
@@ -189,11 +190,12 @@ mod tests {
         assert_eq!(new.b.king, bit(17));
         assert_eq!(new.b.rooks, bit(13));
         assert_eq!(new.b.all, bit(13) | bit(17));
+        Ok(())
     }
 
     #[test]
-    fn make_move_king() {
-        let pos = Position::from_fen("8/5kq1/1R6/8/3K4/8/8/8 w - - 0 1");
+    fn make_move_king() -> Result<(), FenParseError> {
+        let pos = Position::from_fen("8/5kq1/1R6/8/3K4/8/8/8 w - - 0 1")?;
         let m = Move::new(27, 35, Piece::King, false);
         let new = make_move(&pos, &m);
         assert_eq!(new.w.rooks, bit(41));
@@ -203,11 +205,12 @@ mod tests {
         assert_eq!(new.b.king, bit(53));
         assert_eq!(new.b.queens, bit(54));
         assert_eq!(new.b.all, bit(53) | bit(54));
+        Ok(())
     }
 
     #[test]
-    fn make_move_bishop() {
-        let pos = Position::from_fen("8/2k5/8/4K3/1r6/8/3B4/8 w - - 0 1");
+    fn make_move_bishop() -> Result<(), FenParseError> {
+        let pos = Position::from_fen("8/2k5/8/4K3/1r6/8/3B4/8 w - - 0 1")?;
         let m = Move::new(11, 25, Piece::Bishop, true);
         let new = make_move(&pos, &m);
         assert_eq!(new.w.king, bit(36));
@@ -217,11 +220,12 @@ mod tests {
         assert_eq!(new.b.king, bit(50));
         assert_eq!(new.b.rooks, 0x0);
         assert_eq!(new.b.all, bit(50));
+        Ok(())
     }
 
     #[test]
-    fn make_move_queen() {
-        let pos = Position::from_fen("8/8/1kq5/8/5K2/2R5/8/8 b - - 0 1");
+    fn make_move_queen() -> Result<(), FenParseError> {
+        let pos = Position::from_fen("8/8/1kq5/8/5K2/2R5/8/8 b - - 0 1")?;
         let m = Move::new(42, 18, Piece::Queen, true);
         let new = make_move(&pos, &m);
         assert_eq!(new.w.king, bit(29));
@@ -231,11 +235,12 @@ mod tests {
         assert_eq!(new.b.king, bit(41));
         assert_eq!(new.b.queens, bit(18));
         assert_eq!(new.b.all, bit(18) | bit(41));
+        Ok(())
     }
 
     #[test]
-    fn make_move_white_kingside_castling() {
-        let pos = Position::from_fen("rn1qkbnr/ppp2ppp/3p4/4p3/2B1P1b1/5N2/PPPP1PPP/RNBQK2R w KQkq - 2 4");
+    fn make_move_white_kingside_castling() -> Result<(), FenParseError> {
+        let pos = Position::from_fen("rn1qkbnr/ppp2ppp/3p4/4p3/2B1P1b1/5N2/PPPP1PPP/RNBQK2R w KQkq - 2 4")?;
         let m = Move::castling(Player::White, CastlingSide::KingSide);
         let new = make_move(&pos, &m);
         assert_eq!(new.w.all, pos.w.all & !(bit(4) | bit(7)) | bit(5) | bit(6));
@@ -243,11 +248,12 @@ mod tests {
         assert_eq!(new.b, pos.b);
         assert_eq!(new.w.king, bit(6));
         assert_eq!(new.w.rooks, bit(0) | bit(5));
+        Ok(())
     }
 
     #[test]
-    fn make_move_black_kingside_castling() {
-        let pos = Position::from_fen("rnbqk2r/pppp1ppp/5n2/2b1p3/4P3/3PBN2/PPP2PPP/RN1QKB1R b KQkq - 4 4");
+    fn make_move_black_kingside_castling() -> Result<(), FenParseError> {
+        let pos = Position::from_fen("rnbqk2r/pppp1ppp/5n2/2b1p3/4P3/3PBN2/PPP2PPP/RN1QKB1R b KQkq - 4 4")?;
         let m = Move::castling(Player::Black, CastlingSide::KingSide);
         let new = make_move(&pos, &m);
         assert_eq!(new.b.all, pos.b.all & !(bit(60) | bit(63)) | bit(61) | bit(62));
@@ -255,11 +261,12 @@ mod tests {
         assert_eq!(new.w, pos.w);
         assert_eq!(new.b.king, bit(62));
         assert_eq!(new.b.rooks, bit(56) | bit(61));
+        Ok(())
     }
 
     #[test]
-    fn make_move_white_queenside_castling() {
-        let pos = Position::from_fen("rn2k1nr/ppp2ppp/3pbq2/2b1p2Q/4P3/2NPB3/PPP2PPP/R3KBNR w KQkq - 4 6");
+    fn make_move_white_queenside_castling() -> Result<(), FenParseError> {
+        let pos = Position::from_fen("rn2k1nr/ppp2ppp/3pbq2/2b1p2Q/4P3/2NPB3/PPP2PPP/R3KBNR w KQkq - 4 6")?;
         let m = Move::castling(Player::White, CastlingSide::QueenSide);
         let new = make_move(&pos, &m);
         assert_eq!(new.w.all, pos.w.all & !(bit(0) | bit(4)) | bit(2) | bit(3));
@@ -267,11 +274,12 @@ mod tests {
         assert_eq!(new.b, pos.b);
         assert_eq!(new.w.king, bit(2));
         assert_eq!(new.w.rooks, bit(3) | bit(7));
+        Ok(())
     }
 
     #[test]
-    fn make_move_black_queenside_castling() {
-        let pos = Position::from_fen("r3kbnr/ppp2ppp/2npbq2/4p1N1/4P3/2NPB3/PPP2PPP/R2QKB1R b KQkq - 7 6");
+    fn make_move_black_queenside_castling() -> Result<(), FenParseError> {
+        let pos = Position::from_fen("r3kbnr/ppp2ppp/2npbq2/4p1N1/4P3/2NPB3/PPP2PPP/R2QKB1R b KQkq - 7 6")?;
         let m = Move::castling(Player::Black, CastlingSide::QueenSide);
         let new = make_move(&pos, &m);
         assert_eq!(new.b.all, pos.b.all & !(bit(56) | bit(60)) | bit(58) | bit(59));
@@ -279,37 +287,42 @@ mod tests {
         assert_eq!(new.w, pos.w);
         assert_eq!(new.b.king, bit(58));
         assert_eq!(new.b.rooks, bit(59) | bit(63));
+        Ok(())
     }
 
     #[test]
-    fn is_square_attacked_endgame() {
-        let pos = Position::from_fen("8/3r1k2/8/4N3/1Q5q/8/2K5/8 b - - 0 1");
+    fn is_square_attacked_endgame() -> Result<(), FenParseError> {
+        let pos = Position::from_fen("8/3r1k2/8/4N3/1Q5q/8/2K5/8 b - - 0 1")?;
         assert_eq!(is_square_attacked(&pos, 53, Player::White), true);
         assert_eq!(is_square_attacked(&pos, 51, Player::White), true);
         assert_eq!(is_square_attacked(&pos, 20, Player::White), false);
         assert_eq!(is_square_attacked(&pos, 25, Player::Black), true);
         assert_eq!(is_square_attacked(&pos, 52, Player::Black), true);
         assert_eq!(is_square_attacked(&pos, 10, Player::Black), false);
+        Ok(())
     }
 
     #[test]
-    fn is_king_in_check_midgame_1() {
-        let pos = Position::from_fen("r1bqkb1r/ppp2ppp/5n2/1B4Q1/1n1P2N1/2N5/PPP2PPP/R1B1K2R b KQkq - 0 1");
+    fn is_king_in_check_midgame_1() -> Result<(), FenParseError> {
+        let pos = Position::from_fen("r1bqkb1r/ppp2ppp/5n2/1B4Q1/1n1P2N1/2N5/PPP2PPP/R1B1K2R b KQkq - 0 1")?;
         assert_eq!(is_king_in_check(&pos, Player::White), false);
         assert_eq!(is_king_in_check(&pos, Player::Black), true);
+        Ok(())
     }
 
     #[test]
-    fn is_king_in_check_midgame_2() {
-        let pos = Position::from_fen("r1bqk1nr/pppp2pp/2n5/1B2pp2/1b1PP3/5N2/PPP2PPP/RNBQK2R w KQkq - 0 1");
+    fn is_king_in_check_midgame_2() -> Result<(), FenParseError> {
+        let pos = Position::from_fen("r1bqk1nr/pppp2pp/2n5/1B2pp2/1b1PP3/5N2/PPP2PPP/RNBQK2R w KQkq - 0 1")?;
         assert_eq!(is_king_in_check(&pos, Player::White), true);
         assert_eq!(is_king_in_check(&pos, Player::Black), false);
+        Ok(())
     }
 
     #[test]
-    fn is_king_in_check_endgame() {
-        let pos = Position::from_fen("R6k/8/7K/8/8/1b6/8/8 b - - 0 1");
+    fn is_king_in_check_endgame() -> Result<(), FenParseError> {
+        let pos = Position::from_fen("R6k/8/7K/8/8/1b6/8/8 b - - 0 1")?;
         assert_eq!(is_king_in_check(&pos, Player::White), false);
         assert_eq!(is_king_in_check(&pos, Player::Black), true);
+        Ok(())
     }
 }
