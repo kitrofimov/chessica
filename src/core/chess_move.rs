@@ -122,6 +122,9 @@ impl ToString for CastlingRights {
         if self.black_queenside {
             s += "q";
         }
+        if s == "" {
+            return "-".into();
+        }
         s
     }
 }

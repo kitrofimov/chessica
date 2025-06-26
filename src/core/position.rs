@@ -79,11 +79,11 @@ impl std::fmt::Display for Position {
             writeln!(f)?;
         }
         writeln!(f, "  a b c d e f g h")?;
-        writeln!(f, "Turn: {:?}", self.player_to_move)?;
-        writeln!(f, "Castling rights: {}", self.castling.to_string())?;
         if let Some(ep_sq) = self.en_passant_square {
             writeln!(f, "En passant square: {:?}", square_idx_to_string(ep_sq))?;
         }
+        writeln!(f, "Player to move: {:?}", self.player_to_move)?;
+        write!(f, "Castling rights: {}", self.castling.to_string())?;
         Ok(())
     }
 }
