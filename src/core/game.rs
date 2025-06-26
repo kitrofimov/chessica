@@ -48,9 +48,7 @@ impl Game {
         let new = make_move(&pos, m);
 
         // Check legality of a move (is player that made the move still in check?)
-        // pos.make_move already flipped the flag, so we flip it the second time
-        // terrible workaround, but works
-        if is_king_in_check(&new, pos.player_to_move.opposite()) {
+        if is_king_in_check(&new, pos.player_to_move) {
             return false;
         }
 
