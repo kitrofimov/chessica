@@ -112,10 +112,7 @@ fn handle_en_passant(m: &Move, hostile: &mut BitboardSet, who_made_move: Player)
 fn handle_capture(m: &Move, hostile: &mut BitboardSet, castling: &mut CastlingRights) {
     hostile.unset_bit(m.to);
 
-    // TODO: was I drunk while writing this comment?
-    // If we take on the rooks' starting squares, make castling not possible
-    // What if it is not rooks on these squares already? Then the variable
-    // is already false and it won't hurt to unset it again
+    // Capturing rook square disables castling - harmless if no rook was there
     match m.to {
         board::A1 => castling.white_queenside = false,
         board::H1 => castling.white_kingside = false,
