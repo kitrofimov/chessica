@@ -1,22 +1,38 @@
-use std::{i32, time::Instant};
-use chess_engine::{game::*, perft::*};
+use std::io::{self, BufRead, Write};
+use std::sync::{Arc, atomic::AtomicBool};
+use std::thread::JoinHandle;
+
+use chess_engine::{core::game::Game, uci};
 
 fn main() {
-    let args: Vec<String> = std::env::args().collect();
-    let depth = args.get(1)
-        .and_then(|arg| arg.parse::<usize>().ok())
-        .expect("Please provide a valid integer as the first argument.");
-
+    let stdin = io::stdin();
     let mut game = Game::default();
-    println!("{}", game.find_best_move(depth).to_string());
 
-    // let start = Instant::now();
-    // let nodes = perft(&mut game, depth, 0);
-    // let duration = start.elapsed();
-    // let seconds = duration.as_secs_f64();
+    let mut stop_flag = Arc::new(AtomicBool::new(false));
+    let mut search_thread: Option<JoinHandle<()>> = None;
 
-    // println!("\nNodes searched: {}", nodes);
-    // println!("Time: {:.3} sec", seconds);
-    // println!("Nodes per second: {:.2}", nodes as f64 / seconds);
+    for line in stdin.lock().lines() {
+        let line = line.unwrap();
+        let tokens: Vec<&str> = line.trim().split_whitespace().collect();
+        if tokens.is_empty() {
+            continue;
+        }
+
+        match tokens[0] {
+            "uci"        => uci::uci(),
+            "isready"    => uci::isready(),
+            "ucinewgame" => uci::ucinewgame(&mut game),
+            "position"   => uci::position(&mut game, &tokens),
+            "go"         => uci::go(&mut game, &tokens, &mut stop_flag, &mut search_thread),
+            "stop"       => uci::stop_search(&mut stop_flag, &mut search_thread),
+            "quit" => {
+                uci::stop_search(&mut stop_flag, &mut search_thread);
+                break;
+            }
+            "d" => println!("{}", game.position()),
+            _   => println!("info string Unknown command!")
+        }
+
+        io::stdout().flush().unwrap();
+    }
 }
-

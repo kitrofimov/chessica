@@ -2,6 +2,11 @@ pub const fn bit(sq: usize) -> u64 {
     1u64 << sq
 }
 
+// List of squares to bitboard
+pub fn sq_to_bb(lst: &[u8]) -> u64 {
+    lst.iter().fold(0u64, |s, &a| s | bit(a.into()))
+}
+
 pub fn pop_lsb(bitboard: &mut u64) -> u8 {
     let result = bitboard.trailing_zeros() as u8;
     *bitboard &= *bitboard - 1;
@@ -53,6 +58,7 @@ pub fn print_bitboard(bb: u64) {
 
 #[cfg(test)]
 mod tests {
+    use crate::constants::board;
     use super::*;
 
     #[test]
@@ -68,11 +74,11 @@ mod tests {
 
     #[test]
     fn square_idx_to_string_test() {
-        assert_eq!(square_idx_to_string(0), "a1");
-        assert_eq!(square_idx_to_string(7), "h1");
-        assert_eq!(square_idx_to_string(56), "a8");
-        assert_eq!(square_idx_to_string(63), "h8");
-        assert_eq!(square_idx_to_string(27), "d4");
+        assert_eq!(square_idx_to_string(board::A1), "a1");
+        assert_eq!(square_idx_to_string(board::H1), "h1");
+        assert_eq!(square_idx_to_string(board::A8), "a8");
+        assert_eq!(square_idx_to_string(board::H8), "h8");
+        assert_eq!(square_idx_to_string(board::D4), "d4");
     }
 
     #[test]

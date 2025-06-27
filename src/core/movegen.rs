@@ -1,64 +1,68 @@
-use crate::position::*;
+use crate::core::{
+    chess_move::{CastlingSide::*, *},
+    piece::Piece,
+    player::Player,
+    position::*,
+    rules::is_square_attacked,
+};
 use crate::utility::*;
-use crate::constants::*;
+use crate::constants::{board::*, attacks::*, magics::*, masks::*};
 
 pub fn pseudo_moves(pos: &Position) -> Vec<Move> {
     let mut moves = Vec::new();
-    generate_pseudo_pawn_moves  (&pos, &mut moves);
-    generate_pseudo_moves_for_piece(&pos, Piece::Knight, &mut moves);
-    generate_pseudo_moves_for_piece(&pos, Piece::Bishop, &mut moves);
-    generate_pseudo_moves_for_piece(&pos, Piece::Rook, &mut moves);
-    generate_pseudo_moves_for_piece(&pos, Piece::Queen, &mut moves);
-    generate_pseudo_moves_for_piece(&pos, Piece::King, &mut moves);
-    generate_pseudo_castling_moves(&pos, &mut moves);
+    pseudo_pawn_moves(&pos, &mut moves);
+    pseudo_moves_for_piece(&pos, Piece::Knight, &mut moves);
+    pseudo_moves_for_piece(&pos, Piece::Bishop, &mut moves);
+    pseudo_moves_for_piece(&pos, Piece::Rook, &mut moves);
+    pseudo_moves_for_piece(&pos, Piece::Queen, &mut moves);
+    pseudo_moves_for_piece(&pos, Piece::King, &mut moves);
+    pseudo_castling_moves(&pos, &mut moves);
     moves
 }
 
-fn generate_pseudo_castling_moves(pos: &Position, moves: &mut Vec<Move>) {
-    let (mut kingside_mask, mut queenside_mask, king_bb) =
-        match pos.player_to_move {
-            Player::White => (
-                bit(4) | bit(5) | bit(6),
-                bit(1) | bit(2) | bit(3) | bit(4),
-                bit(4)
-            ),
-            Player::Black => (
-                bit(60) | bit(61) | bit(62),
-                bit(57) | bit(58) | bit(59) | bit(60),
-                bit(60)
-            ),
-        };
+fn pseudo_castling_moves(pos: &Position, moves: &mut Vec<Move>) {
+    for side in [KingSide, QueenSide] {
+        if can_castle(pos, side) {
+            moves.push(Move::castling(pos.player_to_move, side));
+        }
+    }
+}
 
-    let white_kingside = pos.castling.white_kingside && pos.player_to_move == Player::White;
-    let white_queenside = pos.castling.white_queenside && pos.player_to_move == Player::White;
-    let black_kingside = pos.castling.black_kingside && pos.player_to_move == Player::Black;
-    let black_queenside = pos.castling.black_queenside && pos.player_to_move == Player::Black;
-
-    let kingside_empty = pos.occupied & kingside_mask == king_bb;
-    let queenside_empty = pos.occupied & queenside_mask == king_bb;
-
-    let enemy = pos.player_to_move.opposite();
-
-    let mut kingside_not_attacked = true;
-    while kingside_mask != 0 {
-        let sq = pop_lsb(&mut kingside_mask);
-        kingside_not_attacked = kingside_not_attacked && !pos.is_square_attacked(sq.into(), enemy);
+fn can_castle(pos: &Position, side: CastlingSide) -> bool {
+    let king_bb = match pos.player_to_move {
+        Player::White => bit(4),
+        Player::Black => bit(60),
     };
 
-    let mut queenside_not_attacked = true;
-    pop_lsb(&mut queenside_mask);  // we do not need this bit
-    while queenside_mask != 0 {
-        let sq = pop_lsb(&mut queenside_mask);
-        queenside_not_attacked = queenside_not_attacked && !pos.is_square_attacked(sq.into(), enemy);
+    let mut mask = match (side, pos.player_to_move) {
+        (KingSide,  Player::White) => sq_to_bb(&[E1, G1, F1]),
+        (KingSide,  Player::Black) => sq_to_bb(&[E8, G8, F8]),
+        (QueenSide, Player::White) => sq_to_bb(&[B1, C1, D1, E1]),
+        (QueenSide, Player::Black) => sq_to_bb(&[B8, C8, D8, E8]),
     };
 
-    if (white_kingside || black_kingside) && kingside_empty && kingside_not_attacked {
-        moves.push(Move::castling(pos.player_to_move, CastlingSide::KingSide));
+    let has_rights = match (side, pos.player_to_move) {
+        (KingSide,  Player::White) => pos.castling.white_kingside,
+        (KingSide,  Player::Black) => pos.castling.black_kingside,
+        (QueenSide, Player::White) => pos.castling.white_queenside,
+        (QueenSide, Player::Black) => pos.castling.black_queenside,
+    };
+
+    let is_empty = pos.occupied & mask == king_bb;
+
+    if side == QueenSide {
+        pop_lsb(&mut mask);  // do not need this bit in the next check
     }
 
-    if (white_queenside || black_queenside) && queenside_empty && queenside_not_attacked {
-        moves.push(Move::castling(pos.player_to_move, CastlingSide::QueenSide));
-    }
+    // Make sure the king doesn't pass through attacked squares
+    while mask != 0 {
+        let sq = pop_lsb(&mut mask);
+        if is_square_attacked(&pos, sq.into(), pos.player_to_move.opposite()) {
+            return false;
+        }
+    };
+
+    has_rights && is_empty
 }
 
 fn add_pawn_moves(moves: &mut Vec<Move>, to_mask: u64, offset: i8, capture: bool, promotion: bool, en_passant: bool) {
@@ -79,9 +83,9 @@ fn add_pawn_moves(moves: &mut Vec<Move>, to_mask: u64, offset: i8, capture: bool
     }
 }
 
-fn generate_pseudo_pawn_moves(pos: &Position, moves: &mut Vec<Move>) {
+fn pseudo_pawn_moves(pos: &Position, moves: &mut Vec<Move>) {
     let empty = !pos.occupied;
-    let en_passant_bb = pos.en_passant_square.map(|sq| 1u64 << sq).unwrap_or(0);
+    let en_passant_bb = pos.en_passant_square.map(|sq| bit(sq.into())).unwrap_or(0);
     let (pawns, enemy, left_offset, forward_offset, right_offset,
          start_rank, promo_rank, mask_right, mask_left) =
         match pos.player_to_move {
@@ -158,7 +162,7 @@ pub fn king_attacks(_pos: &Position, sq: usize, friendly: u64) -> u64 {
     KING_ATTACKS[sq] & !friendly
 }
 
-fn generate_pseudo_moves_for_piece(pos: &Position, piece_type: Piece, moves: &mut Vec<Move>) {
+fn pseudo_moves_for_piece(pos: &Position, piece_type: Piece, moves: &mut Vec<Move>) {
     let (my_set, enemy_set) = match pos.player_to_move {
         Player::White => (&pos.w, &pos.b),
         Player::Black => (&pos.b, &pos.w),
@@ -197,7 +201,7 @@ mod tests {
     fn pseudo_pawn_moves_start_position() {
         let pos = Position::start();
         let mut moves = Vec::new();
-        generate_pseudo_pawn_moves(&pos, &mut moves);
+        pseudo_pawn_moves(&pos, &mut moves);
 
         let expected: HashSet<Move> = [
             Move::pawn(8, 16, false, None, false),
@@ -223,10 +227,10 @@ mod tests {
     }
 
     #[test]
-    fn pseudo_pawn_moves_endgame() {
-        let pos = Position::from_fen("8/p1pp3p/BN6/3R4/1k2K3/8/1p3pp1/2Q1B3 b - - 0 1");
+    fn pseudo_pawn_moves_endgame() -> Result<(), FenParseError> {
+        let pos = Position::from_fen("8/p1pp3p/BN6/3R4/1k2K3/8/1p3pp1/2Q1B3 b - - 0 1")?;
         let mut moves = Vec::new();
-        generate_pseudo_pawn_moves(&pos, &mut moves);
+        pseudo_pawn_moves(&pos, &mut moves);
 
         let expected: HashSet<Move> = [
             Move::pawn(48, 41, true, None, false),
@@ -264,13 +268,14 @@ mod tests {
 
         let moves_set: HashSet<Move> = moves.into_iter().collect();
         assert_eq!(moves_set, expected);
+        Ok(())
     }
 
     #[test]
-    fn pseudo_pawn_moves_en_passant() {
-        let pos = Position::from_fen("8/6k1/8/1pP1Pp2/8/8/5K2/8 w - b6 0 1");
+    fn pseudo_pawn_moves_en_passant() -> Result<(), FenParseError> {
+        let pos = Position::from_fen("8/6k1/8/1pP1Pp2/8/8/5K2/8 w - b6 0 1")?;
         let mut moves = Vec::new();
-        generate_pseudo_pawn_moves(&pos, &mut moves);
+        pseudo_pawn_moves(&pos, &mut moves);
 
         let expected: HashSet<Move> = [
             Move::pawn(34, 42, false, None, false),
@@ -280,13 +285,14 @@ mod tests {
 
         let moves_set: HashSet<Move> = moves.into_iter().collect();
         assert_eq!(moves_set, expected);
+        Ok(())
     }
 
     #[test]
     fn pseudo_knight_moves_start_position() {
         let pos = Position::start();
         let mut moves = Vec::new();
-        generate_pseudo_moves_for_piece(&pos, Piece::Knight, &mut moves);
+        pseudo_moves_for_piece(&pos, Piece::Knight, &mut moves);
 
         let expected: HashSet<Move> = [
             Move::new(1, 16, Piece::Knight, false),
@@ -300,10 +306,10 @@ mod tests {
     }
 
     #[test]
-    fn pseudo_knight_moves_endgame() {
-        let pos = Position::from_fen("8/3nk3/1N3R2/3n2n1/3N4/8/3K1N2/1r6 w - - 0 1");
+    fn pseudo_knight_moves_endgame() -> Result<(), FenParseError> {
+        let pos = Position::from_fen("8/3nk3/1N3R2/3n2n1/3N4/8/3K1N2/1r6 w - - 0 1")?;
         let mut moves = Vec::new();
-        generate_pseudo_moves_for_piece(&pos, Piece::Knight, &mut moves);
+        pseudo_moves_for_piece(&pos, Piece::Knight, &mut moves);
 
         let expected: HashSet<Move> = [
             Move::new(13, 3, Piece::Knight, false),
@@ -330,21 +336,22 @@ mod tests {
 
         let moves_set: HashSet<Move> = moves.into_iter().collect();
         assert_eq!(moves_set, expected);
+        Ok(())
     }
 
     #[test]
     fn pseudo_king_moves_start_position() {
         let pos = Position::start();
         let mut moves = Vec::new();
-        generate_pseudo_moves_for_piece(&pos, Piece::King, &mut moves);
+        pseudo_moves_for_piece(&pos, Piece::King, &mut moves);
         assert_eq!(moves.len(), 0);
     }
 
     #[test]
-    fn pseudo_king_moves_endgame() {
-        let pos = Position::from_fen("8/8/8/8/7P/6K1/1r6/k7 w - - 0 1");
+    fn pseudo_king_moves_endgame() -> Result<(), FenParseError> {
+        let pos = Position::from_fen("8/8/8/8/7P/6K1/1r6/k7 w - - 0 1")?;
         let mut moves = Vec::new();
-        generate_pseudo_moves_for_piece(&pos, Piece::King, &mut moves);
+        pseudo_moves_for_piece(&pos, Piece::King, &mut moves);
 
         let expected: HashSet<Move> = [
             Move::new(22, 13, Piece::King, false),
@@ -358,21 +365,22 @@ mod tests {
 
         let moves_set: HashSet<Move> = moves.into_iter().collect();
         assert_eq!(moves_set, expected);
+        Ok(())
     }
 
     #[test]
     fn pseudo_rook_moves_start_position() {
         let pos = Position::start();
         let mut moves = Vec::new();
-        generate_pseudo_moves_for_piece(&pos, Piece::Rook, &mut moves);
+        pseudo_moves_for_piece(&pos, Piece::Rook, &mut moves);
         assert_eq!(moves.len(), 0);
     }
 
     #[test]
-    fn pseudo_rook_moves_endgame() {
-        let pos = Position::from_fen("8/3k4/8/R3p3/6P1/1P6/3K2R1/8 w - - 0 1");
+    fn pseudo_rook_moves_endgame() -> Result<(), FenParseError> {
+        let pos = Position::from_fen("8/3k4/8/R3p3/6P1/1P6/3K2R1/8 w - - 0 1")?;
         let mut moves = Vec::new();
-        generate_pseudo_moves_for_piece(&pos, Piece::Rook, &mut moves);
+        pseudo_moves_for_piece(&pos, Piece::Rook, &mut moves);
 
         let expected: HashSet<Move> = [
             Move::new(32, 40, Piece::Rook, false),
@@ -395,21 +403,22 @@ mod tests {
 
         let moves_set: HashSet<Move> = moves.into_iter().collect();
         assert_eq!(moves_set, expected);
+        Ok(())
     }
 
     #[test]
     fn pseudo_bishop_moves_start_position() {
         let pos = Position::start();
         let mut moves = Vec::new();
-        generate_pseudo_moves_for_piece(&pos, Piece::Bishop, &mut moves);
+        pseudo_moves_for_piece(&pos, Piece::Bishop, &mut moves);
         assert_eq!(moves.len(), 0);
     }
 
     #[test]
-    fn pseudo_bishop_moves_endgame() {
-        let pos = Position::from_fen("8/8/8/3b4/5P1b/1k6/3b3K/b7 b - - 0 1");
+    fn pseudo_bishop_moves_endgame() -> Result<(), FenParseError> {
+        let pos = Position::from_fen("8/8/8/3b4/5P1b/1k6/3b3K/b7 b - - 0 1")?;
         let mut moves = Vec::new();
-        generate_pseudo_moves_for_piece(&pos, Piece::Bishop, &mut moves);
+        pseudo_moves_for_piece(&pos, Piece::Bishop, &mut moves);
 
         let expected: HashSet<Move> = [
             Move::new(0, 9, Piece::Bishop, false),
@@ -448,13 +457,14 @@ mod tests {
 
         let moves_set: HashSet<Move> = moves.into_iter().collect();
         assert_eq!(moves_set, expected);
+        Ok(())
     }
 
     #[test]
-    fn pseudo_bishop_moves_blocking_friendly() {
-        let pos = Position::from_fen("1k3K2/8/1P3P2/8/3B4/8/1P3P2/8 w - - 0 1");
+    fn pseudo_bishop_moves_blocking_friendly() -> Result<(), FenParseError> {
+        let pos = Position::from_fen("1k3K2/8/1P3P2/8/3B4/8/1P3P2/8 w - - 0 1")?;
         let mut moves = Vec::new();
-        generate_pseudo_moves_for_piece(&pos, Piece::Bishop, &mut moves);
+        pseudo_moves_for_piece(&pos, Piece::Bishop, &mut moves);
 
         let expected: HashSet<Move> = [
             Move::new(27, 18, Piece::Bishop, false),
@@ -465,13 +475,14 @@ mod tests {
 
         let moves_set: HashSet<Move> = moves.into_iter().collect();
         assert_eq!(moves_set, expected);
+        Ok(())
     }
 
     #[test]
-    fn pseudo_bishop_moves_blocking_hostile() {
-        let pos = Position::from_fen("1k3K2/8/1p3p2/8/3B4/8/1p3p2/8 w - - 0 1");
+    fn pseudo_bishop_moves_blocking_hostile() -> Result<(), FenParseError> {
+        let pos = Position::from_fen("1k3K2/8/1p3p2/8/3B4/8/1p3p2/8 w - - 0 1")?;
         let mut moves = Vec::new();
-        generate_pseudo_moves_for_piece(&pos, Piece::Bishop, &mut moves);
+        pseudo_moves_for_piece(&pos, Piece::Bishop, &mut moves);
 
         let expected: HashSet<Move> = [
             Move::new(27, 18, Piece::Bishop, false),
@@ -486,21 +497,22 @@ mod tests {
 
         let moves_set: HashSet<Move> = moves.into_iter().collect();
         assert_eq!(moves_set, expected);
+        Ok(())
     }
 
     #[test]
     fn pseudo_queen_moves_start_position() {
         let pos = Position::start();
         let mut moves = Vec::new();
-        generate_pseudo_moves_for_piece(&pos, Piece::Queen, &mut moves);
+        pseudo_moves_for_piece(&pos, Piece::Queen, &mut moves);
         assert_eq!(moves.len(), 0);
     }
 
     #[test]
-    fn pseudo_queen_moves_endgame() {
-        let pos = Position::from_fen("8/k3b3/2r5/8/4Q1N1/8/2K5/8 w - - 0 1");
+    fn pseudo_queen_moves_endgame() -> Result<(), FenParseError> {
+        let pos = Position::from_fen("8/k3b3/2r5/8/4Q1N1/8/2K5/8 w - - 0 1")?;
         let mut moves = Vec::new();
-        generate_pseudo_moves_for_piece(&pos, Piece::Queen, &mut moves);
+        pseudo_moves_for_piece(&pos, Piece::Queen, &mut moves);
 
         let expected: HashSet<Move> = [
             Move::new(28, 4, Piece::Queen, false),
@@ -527,31 +539,35 @@ mod tests {
 
         let moves_set: HashSet<Move> = moves.into_iter().collect();
         assert_eq!(moves_set, expected);
+        Ok(())
     }
 
     #[test]
-    fn pseudo_castling_moves_midgame1() {
-        let pos = Position::from_fen("rnb1k1nr/pppp1ppp/3b1q2/4p3/2BPP3/2P2N2/PP3PPP/RNBQK2R w KQkq - 0 1");
+    fn pseudo_castling_moves_midgame1() -> Result<(), FenParseError> {
+        let pos = Position::from_fen("rnb1k1nr/pppp1ppp/3b1q2/4p3/2BPP3/2P2N2/PP3PPP/RNBQK2R w KQkq - 0 1")?;
         let mut moves = Vec::new();
-        generate_pseudo_castling_moves(&pos, &mut moves);
+        pseudo_castling_moves(&pos, &mut moves);
         assert_eq!(moves.len(), 1);
         assert_eq!(moves[0], Move::castling(Player::White, CastlingSide::KingSide));
+        Ok(())
     }
 
     #[test]
-    fn pseudo_castling_moves_midgame2() {
-        let pos = Position::from_fen("r3kbnr/ppp2ppp/2np2b1/4p2q/4P3/5PP1/PPPP3P/RNBQKBNR b KQkq - 0 1");
+    fn pseudo_castling_moves_midgame2() -> Result<(), FenParseError> {
+        let pos = Position::from_fen("r3kbnr/ppp2ppp/2np2b1/4p2q/4P3/5PP1/PPPP3P/RNBQKBNR b KQkq - 0 1")?;
         let mut moves = Vec::new();
-        generate_pseudo_castling_moves(&pos, &mut moves);
+        pseudo_castling_moves(&pos, &mut moves);
         assert_eq!(moves.len(), 1);
         assert_eq!(moves[0], Move::castling(Player::Black, CastlingSide::QueenSide));
+        Ok(())
     }
 
     #[test]
-    fn pseudo_castling_moves_should_generate_nothing() {
-        let pos = Position::from_fen("r3kbnr/ppp2ppp/2np2b1/4p2q/4P3/3P1PPB/PPP4P/RNBQK1NR b KQkq - 0 1");
+    fn pseudo_castling_moves_should_generate_nothing() -> Result<(), FenParseError> {
+        let pos = Position::from_fen("r3kbnr/ppp2ppp/2np2b1/4p2q/4P3/3P1PPB/PPP4P/RNBQK1NR b KQkq - 0 1")?;
         let mut moves = Vec::new();
-        generate_pseudo_castling_moves(&pos, &mut moves);
+        pseudo_castling_moves(&pos, &mut moves);
         assert_eq!(moves.len(), 0);
+        Ok(())
     }
 }

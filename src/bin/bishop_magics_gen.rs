@@ -1,7 +1,7 @@
 use std::{fs::File, io::BufWriter};
 use std::io::Write;
 use rand::Rng;
-use chess_engine::constants::BISHOP_MASKS;
+use chess_engine::constants::masks::BISHOP_MASKS;
 
 fn bit(sq: usize) -> u64 {
     1u64 << sq
