@@ -163,6 +163,7 @@ pub fn go(
         let winc = params.winc.unwrap_or(0);
         let binc = params.binc.unwrap_or(0);
         let ms = compute_movetime(game, wtime, btime, winc, binc);
+        println!("info string will search for {} ms", ms);
         go_movetime(game, Duration::from_millis(ms.try_into().unwrap()), stop_flag, search_thread);
     }
 }

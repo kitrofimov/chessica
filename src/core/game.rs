@@ -180,6 +180,7 @@ impl Game {
             }
 
             if unwind {
+                // TODO: this panicks! see #8
                 return (best_move.unwrap(), best_score, nodes);
             }
         }
