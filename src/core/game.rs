@@ -105,11 +105,15 @@ impl Game {
 
         let moves = self.pseudo_moves();
         let mut best = if maximize { i32::MIN } else { i32::MAX };
+        let mut found_legal_move = false;
+
         for m in &moves {
             let legal = self.try_to_make_move(m);
             if !legal {
                 continue;
             }
+
+            found_legal_move = true;
             let (eval, unwind) = self.minimax_alphabeta(
                 depth - 1,
                 alpha,
@@ -128,17 +132,27 @@ impl Game {
             if maximize {
                 best = max(best, eval);
                 alpha = max(alpha, eval);
-                if beta <= alpha {
-                    break;
-                }
             } else {
                 best = min(best, eval);
                 beta = min(beta, eval);
-                if beta <= alpha {
-                    break;
-                }
+            }
+
+            if beta <= alpha {
+                break;
             }
         }
+
+        if !found_legal_move {
+            if is_king_in_check(self.position(), self.position().player_to_move) {
+                return (match self.position().player_to_move {  // losing sooner is worse
+                    Player::White => -10_000 + depth as i32,
+                    Player::Black =>  10_000 - depth as i32,
+                }, false);
+            } else {
+                return (0, false);  // stalemate
+            }
+        }
+
         (best, false)
     }
 
