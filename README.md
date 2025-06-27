@@ -17,9 +17,16 @@ TODO list towards a minimal-working prototype:
     - [x] Minimax searching algorithm
     - [x] Alpha-beta pruning
 - [ ] Subtleties & polishing:
-    - [ ] 50 move rule
-    - [ ] What does happen when minimax stumbles upon checkmate?
-    - [ ] Mate evaluation?
+    - [x] 50 move rule
+        - [ ] Should `halfmove_clock` be inside `Position` or `Game`? Also see about the slowdown down below
+    - [ ] Threefold repetition
+        - [ ] Zobrist hashing (-> repetition table)
+            - [x] Naive
+            - [ ] Incremental updating when calling `make_move`
+    - [ ] Significantly slowed down because of commit ff6304d70d3d660373ed7f47e31ea7cd833c6a47. Why? Too expensive to clone a `Position` now?
+    - [ ] Insufficient material
+    - [ ] What does happen when minimax stumbles upon checkmate or stalemate?
+    - [ ] Forced mate evaluation?
     - [ ] Do all the TODO comments
     - [ ] Come up with a cool name and rename the project
 - [x] Universal Chess Interface (UCI)
