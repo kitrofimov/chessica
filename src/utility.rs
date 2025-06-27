@@ -1,4 +1,4 @@
-pub const fn bit(sq: usize) -> u64 {
+pub const fn bit(sq: u8) -> u64 {
     1u64 << sq
 }
 
@@ -29,6 +29,12 @@ pub fn square_string_to_idx(sq: &str) -> Option<u8> {
         return None;
     }
     Some(rank * 8 + file)
+}
+
+pub fn square_idx_to_coordinates(sq: u8) -> (u8, u8) {
+    let file = sq % 8;
+    let rank = sq / 8;
+    (file, rank)
 }
 
 pub fn signed_shift(bb: u64, offset: i8) -> u64 {

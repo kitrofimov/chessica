@@ -10,4 +10,11 @@ impl Player {
             Player::Black => Player::White
         }
     }
+
+    pub fn index(&self) -> usize {
+        match self {
+            Player::White => 0,
+            Player::Black => 1
+        }
+    }
 }

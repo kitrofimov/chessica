@@ -3,6 +3,8 @@ use crate::core::{
     bitboard::*,
     player::Player,
     chess_move::*,
+    piece::Piece,
+    zobrist::zobrist_hash,
 };
 
 /// Uses [Little-Endian Rank-File Mapping](https://www.chessprogramming.org/Square_Mapping_Considerations#Little-Endian_Rank-File_Mapping)
@@ -14,7 +16,8 @@ pub struct Position {
     pub player_to_move: Player,
     pub en_passant_square: Option<u8>,
     pub castling: CastlingRights,
-    pub halfmove_clock: usize
+    pub halfmove_clock: usize,
+    pub zobrist_hash: u64,
 }
 
 #[derive(Debug)]
@@ -42,32 +45,18 @@ impl std::fmt::Display for Position {
 
         for rank in 0..8 {
             for file in 0..8 {
-                let square = 1u64 << (rank * 8 + file);
+                let sq_idx = rank * 8 + file;
+                let what = self.what(sq_idx);
 
-                if self.w.pawns & square != 0 {
-                    board[7 - rank][file] = 'P';
-                } else if self.w.knights & square != 0 {
-                    board[7 - rank][file] = 'N';
-                } else if self.w.bishops & square != 0 {
-                    board[7 - rank][file] = 'B';
-                } else if self.w.rooks & square != 0 {
-                    board[7 - rank][file] = 'R';
-                } else if self.w.queens & square != 0 {
-                    board[7 - rank][file] = 'Q';
-                } else if self.w.king & square != 0 {
-                    board[7 - rank][file] = 'K';
-                } else if self.b.pawns & square != 0 {
-                    board[7 - rank][file] = 'p';
-                } else if self.b.knights & square != 0 {
-                    board[7 - rank][file] = 'n';
-                } else if self.b.bishops & square != 0 {
-                    board[7 - rank][file] = 'b';
-                } else if self.b.rooks & square != 0 {
-                    board[7 - rank][file] = 'r';
-                } else if self.b.queens & square != 0 {
-                    board[7 - rank][file] = 'q';
-                } else if self.b.king & square != 0 {
-                    board[7 - rank][file] = 'k';
+                if let Some((player, piece)) = what {
+                    let uppercase = player == Player::White;
+                    let letter = piece.to_char();
+
+                    board[7 - rank as usize][file as usize] = if uppercase {
+                        letter.to_ascii_uppercase()
+                    } else {
+                        letter
+                    };
                 }
             }
         }
@@ -91,7 +80,7 @@ impl std::fmt::Display for Position {
 
 impl Position {
     pub fn start() -> Self {
-        Position {
+        let mut pos = Position {
             w: BitboardSet {
                 all:     0x000000000000FFFF,
                 pawns:   0x000000000000FF00,
@@ -115,7 +104,10 @@ impl Position {
             en_passant_square: None,
             castling: CastlingRights::default(),
             halfmove_clock: 0,
-        }
+            zobrist_hash: 0,
+        };
+        pos.zobrist_hash = zobrist_hash(&pos);
+        pos
     }
 
     fn validate_fen(fen: &str) -> Result<(), FenParseError> {
@@ -225,7 +217,7 @@ impl Position {
         b.update();
         let occupied: u64 = w.all | b.all;
 
-        Ok(Position {
+        let mut pos = Position {
             w, b, occupied,
             player_to_move: match side_to_move {
                 "w" => Player::White,
@@ -235,7 +227,10 @@ impl Position {
             en_passant_square,
             castling,
             halfmove_clock,
-        })
+            zobrist_hash: 0,
+        };
+        pos.zobrist_hash = zobrist_hash(&pos);
+        Ok(pos)
     }
 
     // Mutate fields `w`, `b` and `occupied` so they are correct
@@ -243,6 +238,38 @@ impl Position {
         self.w.update();
         self.b.update();
         self.occupied = self.w.all | self.b.all;
+    }
+
+    pub fn what(&self, sq_idx: u8) -> Option<(Player, Piece)> {
+        let bb = bit(sq_idx);
+
+        if self.w.pawns & bb != 0 {
+            Some((Player::White, Piece::Pawn))
+        } else if self.w.knights & bb != 0 {
+            Some((Player::White, Piece::Knight))
+        } else if self.w.bishops & bb != 0 {
+            Some((Player::White, Piece::Bishop))
+        } else if self.w.rooks & bb != 0 {
+            Some((Player::White, Piece::Rook))
+        } else if self.w.queens & bb != 0 {
+            Some((Player::White, Piece::Queen))
+        } else if self.w.king & bb != 0 {
+            Some((Player::White, Piece::King))
+        } else if self.b.pawns & bb != 0 {
+            Some((Player::Black, Piece::Pawn))
+        } else if self.b.knights & bb != 0 {
+            Some((Player::Black, Piece::Knight))
+        } else if self.b.bishops & bb != 0 {
+            Some((Player::Black, Piece::Bishop))
+        } else if self.b.rooks & bb != 0 {
+            Some((Player::Black, Piece::Rook))
+        } else if self.b.queens & bb != 0 {
+            Some((Player::Black, Piece::Queen))
+        } else if self.b.king & bb != 0 {
+            Some((Player::Black, Piece::King))
+        } else {
+            None
+        }
     }
 }
 

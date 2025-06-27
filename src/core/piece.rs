@@ -9,14 +9,14 @@ pub enum Piece {
 }
 
 impl Piece {
-    pub fn to_char(&self) -> &str {
+    pub fn to_char(&self) -> char {
         match self {
-            Piece::Pawn   => "",
-            Piece::Knight => "n",
-            Piece::Bishop => "b",
-            Piece::Rook   => "r",
-            Piece::Queen  => "q",
-            Piece::King   => "k",
+            Piece::Pawn   => 'p',
+            Piece::Knight => 'n',
+            Piece::Bishop => 'b',
+            Piece::Rook   => 'r',
+            Piece::Queen  => 'q',
+            Piece::King   => 'k',
         }
     }
 
@@ -34,6 +34,17 @@ impl Piece {
             Piece::Rook   => 500,
             Piece::Queen  => 900,
             Piece::King   => 100_000,
+        }
+    }
+
+    pub fn index(&self) -> usize {
+        match self {
+            Piece::Pawn   => 0,
+            Piece::Knight => 1,
+            Piece::Bishop => 2,
+            Piece::Rook   => 3,
+            Piece::Queen  => 4,
+            Piece::King   => 5,
         }
     }
 }

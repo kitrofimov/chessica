@@ -21,7 +21,7 @@ impl ToString for Move {
         s += &square_idx_to_string(self.from);
         s += &square_idx_to_string(self.to);
         if let Some(promotion_piece) = self.promotion {
-            s += promotion_piece.to_char();
+            s += &promotion_piece.to_char().to_string();
         }
         s
     }

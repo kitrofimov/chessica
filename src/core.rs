@@ -8,3 +8,4 @@ pub mod bitboard;
 pub mod player;
 pub mod evaluate;
 pub mod rules;
+pub mod zobrist;

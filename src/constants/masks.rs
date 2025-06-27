@@ -76,7 +76,7 @@ pub static BISHOP_MASKS: [u64; 64] = {
             bl += 1;
         }
 
-        masks[sq] = mask;
+        masks[sq as usize] = mask;
         sq += 1;
     }
     masks
