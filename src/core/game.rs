@@ -92,6 +92,11 @@ impl Game {
     ) -> (i32, bool) {
         *nodes += 1;
 
+        // 50-move rule
+        if self.position().halfmove_clock >= 100 {
+            return (0, false);
+        }
+
         // Unwind the search if `stop_flag` was set or time is over
         if stop_flag.load(Ordering::Relaxed)
             || time_limit.map(|tl| start_time.elapsed() >= tl).unwrap_or(false) {

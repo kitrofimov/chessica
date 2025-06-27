@@ -14,6 +14,7 @@ pub struct Position {
     pub player_to_move: Player,
     pub en_passant_square: Option<u8>,
     pub castling: CastlingRights,
+    pub halfmove_clock: usize
 }
 
 #[derive(Debug)]
@@ -113,6 +114,7 @@ impl Position {
             player_to_move: Player::White,
             en_passant_square: None,
             castling: CastlingRights::default(),
+            halfmove_clock: 0,
         }
     }
 
@@ -183,6 +185,7 @@ impl Position {
             "-" => None,
             _ => square_string_to_idx(parts[3])
         };
+        let halfmove_clock = parts[4].parse::<usize>().unwrap();
 
         // Starting from the top-left, 0-indexed [0; 7]
         let mut rank = 7;
@@ -231,6 +234,7 @@ impl Position {
             },
             en_passant_square,
             castling,
+            halfmove_clock,
         })
     }
 

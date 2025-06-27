@@ -11,6 +11,8 @@ use crate::core::{
 
 pub fn make_move(pos: &Position, m: &Move) -> Position {
     let mut new = pos.clone();
+    new.halfmove_clock += 1;
+
     let who_made_move = pos.player_to_move;
     let (friendly, hostile, kingside, queenside) = match who_made_move {
         Player::White => (
@@ -30,6 +32,10 @@ pub fn make_move(pos: &Position, m: &Move) -> Position {
     } else {
         update_castling_rights(m, kingside, queenside);
 
+        if m.piece == Piece::Pawn {
+            new.halfmove_clock = 0;
+        }
+
         if let Some(promotion_piece) = m.promotion {
             handle_promotion(m, friendly, promotion_piece);
         } else {
@@ -39,6 +45,7 @@ pub fn make_move(pos: &Position, m: &Move) -> Position {
         if m.en_passant {
             handle_en_passant(m, hostile, who_made_move);
         } else if m.capture {
+            new.halfmove_clock = 0;
             handle_capture(m, hostile, &mut new.castling);
         }
     }
