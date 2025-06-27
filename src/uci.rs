@@ -229,7 +229,12 @@ fn iterative_deepening(
         }
 
         let depth_start = Instant::now();
-        let (m, eval, nodes) = game.find_best_move(depth, &stop_flag);
+        let (m, eval, nodes) = game.find_best_move(
+            depth,
+            &stop_flag,
+            start,
+            time_limit
+        );
         let elapsed = depth_start.elapsed();
 
         if stop_flag.load(Ordering::Relaxed) {
@@ -249,7 +254,6 @@ fn iterative_deepening(
     last_move
 }
 
-// TODO: not really accurate: checks the time only after each finished depth level
 fn go_movetime(
     game: &mut Game,
     movetime: Duration,
