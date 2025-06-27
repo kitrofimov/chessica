@@ -2,7 +2,7 @@ use std::{sync::{atomic::{AtomicBool, Ordering}, Arc}, time::Duration};
 use std::thread::{self, JoinHandle};
 use std::time::Instant;
 
-use crate::{constants::{AUTHOR, NAME}, core::position::FenParseError};
+use crate::{constants::{AUTHOR, NAME}, core::{chess_move::Move, position::FenParseError}};
 use crate::core::{
     game::Game,
     player::Player,
@@ -127,7 +127,7 @@ fn parse_go_params(tokens: &[&str]) -> GoParams {
     params
 }
 
-fn movetime(game: &mut Game, wtime: usize, btime: usize, winc: usize, binc: usize) -> usize {
+fn compute_movetime(game: &mut Game, wtime: usize, btime: usize, winc: usize, binc: usize) -> usize {
     let (time, inc) = if game.position().player_to_move == Player::White {
         (wtime, winc)
     } else {
@@ -152,7 +152,7 @@ pub fn go(
     if let Some(perft_depth) = params.perft {
         go_perft(game, perft_depth, stop_flag, search_thread);
     } else if let Some(movetime) = params.movetime {
-        go_movetime(game, movetime, stop_flag, search_thread);
+        go_movetime(game, Duration::from_millis(movetime.try_into().unwrap()), stop_flag, search_thread);
     } else if let Some(depth) = params.depth {
         go_depth(game, depth, stop_flag, search_thread);
     } else if params.infinite {
@@ -162,8 +162,8 @@ pub fn go(
         let btime = params.btime.unwrap();
         let winc = params.winc.unwrap_or(0);
         let binc = params.binc.unwrap_or(0);
-        let ms = movetime(game, wtime, btime, winc, binc);
-        go_movetime(game, ms, stop_flag, search_thread);
+        let ms = compute_movetime(game, wtime, btime, winc, binc);
+        go_movetime(game, Duration::from_millis(ms.try_into().unwrap()), stop_flag, search_thread);
     }
 }
 
@@ -192,10 +192,67 @@ fn go_perft(game: &mut Game, depth: usize, stop_flag: &mut Arc<AtomicBool>, sear
     }));
 }
 
+fn print_uci_info(depth: usize, eval: i32, nodes: u64, elapsed: Duration) {
+    println!(
+        "info depth {} score cp {} time {} nodes {} nps {}",
+        depth,
+        eval,
+        elapsed.as_millis(),
+        nodes,
+        nodes as f64 / elapsed.as_secs_f64()
+    );
+}
+
+fn print_best_move(best_move: Option<Move>) {
+    if let Some(m) = best_move {
+        println!("bestmove {}", m.to_string());
+    } else {
+        println!("bestmove 0000");
+    }
+}
+
+fn iterative_deepening(
+    game: &mut Game,
+    stop_flag: Arc<AtomicBool>,
+    max_depth: Option<usize>,
+    time_limit: Option<Duration>,
+) -> Option<Move>
+{
+    let mut last_move = None;
+    let start = Instant::now();
+
+    for depth in 1.. {
+        if let Some(d) = max_depth {
+            if depth > d {
+                break;
+            }
+        }
+
+        let depth_start = Instant::now();
+        let (m, eval, nodes) = game.find_best_move(depth, &stop_flag);
+        let elapsed = depth_start.elapsed();
+
+        if stop_flag.load(Ordering::Relaxed) {
+            break;
+        }
+
+        last_move = Some(m);
+        print_uci_info(depth, eval, nodes, elapsed);
+
+        if let Some(limit) = time_limit {
+            if start.elapsed() >= limit {
+                break;
+            }
+        }
+    }
+
+    last_move
+}
+
 // TODO: not really accurate: checks the time only after each finished depth level
 fn go_movetime(
     game: &mut Game,
-    movetime: usize,
+    movetime: Duration,
     stop_flag: &mut Arc<AtomicBool>,
     search_thread: &mut Option<JoinHandle<()>>,
 ) {
@@ -204,36 +261,8 @@ fn go_movetime(
     let stop_flag_clone = Arc::clone(stop_flag);
 
     *search_thread = Some(thread::spawn(move || {
-        let start = Instant::now();
-        let time_limit = Duration::from_millis(movetime as u64);
-        let mut last_complete_best_move = None;
-
-        for depth in 1.. {
-            let start_depth = Instant::now();
-            let (m, eval, nodes) = game_clone.find_best_move(depth, &stop_flag_clone);
-            let after = Instant::now();
-
-            if stop_flag_clone.load(Ordering::Relaxed) {
-                break;
-            }
-
-            last_complete_best_move = Some(m);
-
-            println!(
-                "info depth {} score cp {} time {} nodes {} nps {}",
-                depth, eval, (after - start_depth).as_millis(), nodes, nodes as f64 / ((after - start_depth).as_secs_f64())
-            );
-
-            if after - start >= time_limit {
-                break;
-            }
-        }
-
-        if let Some(m) = last_complete_best_move {
-            println!("bestmove {}", m.to_string());
-        } else {
-            println!("bestmove 0000");
-        }
+        let best_move = iterative_deepening(&mut game_clone, stop_flag_clone, None, Some(movetime));
+        print_best_move(best_move);
     }));
 }
 
@@ -243,31 +272,8 @@ fn go_depth(game: &mut Game, depth: usize, stop_flag: &mut Arc<AtomicBool>, sear
     let stop_flag_clone = Arc::clone(stop_flag);
 
     *search_thread = Some(thread::spawn(move || {
-        let mut last_complete_best_move = None;
-
-        // Still iterative deepening here, because the engine should return a
-        // fully computed move after recieving `stop`
-        for d in 1..=depth {
-            let start_depth = Instant::now();
-            let (m, eval, nodes) = game_clone.find_best_move(d, &stop_flag_clone);
-            let after = Instant::now();
-
-            if stop_flag_clone.load(Ordering::Relaxed) {
-                break;
-            }
-
-            last_complete_best_move = Some(m);
-            println!(
-                "info depth {} score cp {} time {} nodes {} nps {}",
-                d, eval, (after - start_depth).as_millis(), nodes, nodes as f64 / ((after - start_depth).as_secs_f64())
-            );
-        }
-
-        if let Some(m) = last_complete_best_move {
-            println!("bestmove {}", m.to_string());
-        } else {
-            println!("bestmove 0000");
-        }
+        let best_move = iterative_deepening(&mut game_clone, stop_flag_clone, Some(depth), None);
+        print_best_move(best_move);
     }));
 }
 
@@ -277,27 +283,7 @@ fn go_infinite(game: &mut Game, stop_flag: &mut Arc<AtomicBool>, search_thread: 
     let stop_flag_clone = Arc::clone(stop_flag);
 
     *search_thread = Some(thread::spawn(move || {
-        let mut last_complete_best_move = None;
-        for depth in 1.. {
-            let start_depth = Instant::now();
-            let (m, eval, nodes) = game_clone.find_best_move(depth, &stop_flag_clone);
-            let after = Instant::now();
-
-            if stop_flag_clone.load(Ordering::Relaxed) {
-                break;
-            }
-
-            last_complete_best_move = Some(m);
-            println!(
-                "info depth {} score cp {} time {} nodes {} nps {}",
-                depth, eval, (after - start_depth).as_millis(), nodes, nodes as f64 / ((after - start_depth).as_secs_f64())
-            );
-        }
-
-        if let Some(m) = last_complete_best_move {
-            println!("bestmove {}", m.to_string());
-        } else {
-            println!("bestmove 0000");
-        }
+        let best_move = iterative_deepening(&mut game_clone, stop_flag_clone, None, None);
+        print_best_move(best_move);
     }));
 }
