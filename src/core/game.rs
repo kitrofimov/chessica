@@ -142,13 +142,14 @@ impl Game {
         (best, false)
     }
 
+    // Returns (best_move, best_score, nodes, unwind)
     pub fn find_best_move(
         &mut self,
         depth: usize,
         stop_flag: &Arc<AtomicBool>,
         start_time: Instant,
         time_limit: Option<Duration>
-    ) -> (Move, i32, u64) {
+    ) -> (Option<Move>, i32, u64, bool) {
         let mut best_move = None;
         let (mut best_score, maximize) = match self.position().player_to_move {
             Player::White => (i32::MIN, true),
@@ -180,11 +181,10 @@ impl Game {
             }
 
             if unwind {
-                // TODO: this panicks! see #8
-                return (best_move.unwrap(), best_score, nodes);
+                return (best_move, best_score, nodes, true);
             }
         }
 
-        (best_move.unwrap(), best_score, nodes)  // TODO: panicking is bad. What if there are no moves?
+        (best_move, best_score, nodes, false)
     }
 }
