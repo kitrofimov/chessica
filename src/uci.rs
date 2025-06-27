@@ -199,7 +199,7 @@ fn print_uci_info(depth: usize, eval: i32, nodes: u64, elapsed: Duration) {
         eval,
         elapsed.as_millis(),
         nodes,
-        nodes as f64 / elapsed.as_secs_f64()
+        (nodes as f64 / elapsed.as_secs_f64()).round()
     );
 }
 
