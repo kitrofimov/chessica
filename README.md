@@ -24,8 +24,8 @@ TODO list towards a minimal-working prototype:
             - [x] Naive
             - [x] Incremental updating when calling `make_move`
         - [x] Repetition table
-    - [ ] Why `perft` became so slow?
-    - [ ] Insufficient material
+    - [x] Insufficient material
+    - [ ] Why `perft` became so slow? Did the cloning of `Game`s become too expensive?
     - [ ] What does happen when minimax stumbles upon checkmate or stalemate?
     - [ ] Forced mate evaluation?
     - [ ] Do all the TODO comments

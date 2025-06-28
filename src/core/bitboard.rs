@@ -71,6 +71,14 @@ impl BitboardSet {
         self.piece_to_bb(piece).count_ones()
     }
 
+    pub fn count_all(&self) -> u32 {
+        let mut result = 0;
+        for p in Piece::all_variants() {
+            result += self.piece_to_bb(p).count_ones();
+        }
+        result
+    }
+
     pub fn what(&self, sq_idx: u8) -> Option<Piece> {
         let bb = bit(sq_idx);
         if self.pawns & bb != 0 {

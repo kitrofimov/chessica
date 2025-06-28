@@ -10,7 +10,7 @@ use crate::core::{
     movegen::pseudo_moves,
     player::Player,
     position::*,
-    rules::{is_king_in_check, make_move},
+    rules::{is_insufficient_material, is_king_in_check, make_move},
     zobrist::ZobristHash,
 };
 
@@ -112,6 +112,18 @@ impl Game {
         false
     }
 
+    fn is_threefold_repetition(&self) -> bool {
+        self.repetition_table[&self.position().zobrist_hash] == 3
+    }
+
+    fn is_fifty_move_rule(&self) -> bool {
+        *self.halfmove_clock() >= 100
+    }
+
+    fn is_insufficient_material(&self) -> bool {
+        is_insufficient_material(self.position())
+    }
+
     // Returns (eval, unwind)
     fn minimax_alphabeta(
         &mut self,
@@ -126,14 +138,10 @@ impl Game {
     ) -> (i32, bool) {
         *nodes += 1;
 
-        // Threefold repetition rule
-        if self.repetition_table[&self.position().zobrist_hash] == 3 {
-            return (0, false);
-        }
-
-        // 50-move rule
-        if *self.halfmove_clock() >= 100 {
-            return (0, false);
+        if self.is_threefold_repetition() ||
+            self.is_fifty_move_rule() ||
+            self.is_insufficient_material() {
+            return (0, false);  // draw
         }
 
         // Unwind the search if `stop_flag` was set or time is over

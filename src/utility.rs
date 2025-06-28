@@ -7,10 +7,19 @@ pub fn sq_to_bb(lst: &[u8]) -> u64 {
     lst.iter().fold(0u64, |s, &a| s | bit(a.into()))
 }
 
+pub fn lsb(bitboard: u64) -> u8 {
+    bitboard.trailing_zeros() as u8
+}
+
 pub fn pop_lsb(bitboard: &mut u64) -> u8 {
     let result = bitboard.trailing_zeros() as u8;
     *bitboard &= *bitboard - 1;
     result
+}
+
+pub fn is_square_color_white(sq: u8) -> bool {
+    let (file, rank) = square_idx_to_coordinates(sq);
+    (file + rank) % 2 == 0
 }
 
 pub fn square_idx_to_string(sq: u8) -> String {
