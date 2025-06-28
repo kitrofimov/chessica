@@ -67,7 +67,10 @@ pub fn position(game: &mut Game, tokens: &[&str]) {
 
     if tokens.get(i) == Some(&"moves") {
         for mv in &tokens[i + 1..] {
-            game.try_to_make_uci_move(mv);
+            let ok = game.try_to_make_uci_move(mv);
+            if !ok {
+                println!("info string Failed to execute move {}!", mv.to_string());
+            }
         }
     }
 }
