@@ -96,7 +96,7 @@ fn handle_standard_move(new: &mut Position, m: &Move, who_made_move: Player) {
     if let Some(promotion_piece) = m.promotion {
         handle_promotion(friendly, m, &mut hash, who_made_move, promotion_piece);
     } else {
-        handle_normal_move(friendly, m, &mut hash, who_made_move);
+        handle_non_promotion_move(friendly, m, &mut hash, who_made_move);
     }
 
     if m.en_passant {
@@ -123,7 +123,7 @@ fn handle_promotion(
     toggle_piece_hash(hash, promotion_piece, who_made_move, m.to);
 }
 
-fn handle_normal_move(
+fn handle_non_promotion_move(
     friendly: &mut BitboardSet,
     m: &Move,
     hash: &mut u64,
