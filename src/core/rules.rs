@@ -20,7 +20,32 @@ pub fn make_move(pos: &Position, m: &Move) -> Position {
     if m.is_castling() {
         handle_castling(&mut new, m, who_made_move);
     } else {
-        handle_standard_move(&mut new, m, who_made_move);
+        update_castling_rights(&mut new.castling, m, who_made_move);
+
+        if m.piece == Piece::Pawn {
+            new.halfmove_clock = 0;
+        }
+
+        // Borrow checker workaround
+        let mut castling = new.castling;
+        let mut hash = new.zobrist_hash;
+
+        let (friendly, hostile) = new.perspective_mut(who_made_move);
+
+        if let Some(promotion_piece) = m.promotion {
+            handle_promotion(friendly, m, &mut hash, who_made_move, promotion_piece);
+        } else {
+            handle_non_promotion_move(friendly, m, &mut hash, who_made_move);
+        }
+
+        if m.en_passant {
+            handle_en_passant(hostile, m, &mut hash, who_made_move);
+        } else if m.capture {
+            handle_capture(hostile, m, &mut hash, &mut castling, who_made_move);
+        }
+
+        new.castling = castling;
+        new.zobrist_hash = hash;
     }
 
     update_castling_hash(&mut new, old_castling);
@@ -78,35 +103,6 @@ fn apply_move_hash(hash: &mut u64, m: &Move, player: Player) {
 fn en_passant_hash(hash: &mut u64, ep_sq: u8) {
     let (file, _) = square_idx_to_coordinates(ep_sq);
     *hash ^= ZOBRIST_EN_PASSANT_FILE[file as usize];
-}
-
-fn handle_standard_move(new: &mut Position, m: &Move, who_made_move: Player) {
-    update_castling_rights(&mut new.castling, m, who_made_move);
-
-    if m.piece == Piece::Pawn {
-        new.halfmove_clock = 0;
-    }
-
-    // Borrow checker workaround
-    let mut castling = new.castling;
-    let mut hash = new.zobrist_hash;
-
-    let (friendly, hostile) = new.perspective_mut(who_made_move);
-
-    if let Some(promotion_piece) = m.promotion {
-        handle_promotion(friendly, m, &mut hash, who_made_move, promotion_piece);
-    } else {
-        handle_non_promotion_move(friendly, m, &mut hash, who_made_move);
-    }
-
-    if m.en_passant {
-        handle_en_passant(hostile, m, &mut hash, who_made_move);
-    } else if m.capture {
-        handle_capture(hostile, m, &mut hash, &mut castling, who_made_move);
-    }
-
-    new.castling = castling;
-    new.zobrist_hash = hash;
 }
 
 fn handle_promotion(
