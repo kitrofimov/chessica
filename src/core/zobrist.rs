@@ -14,22 +14,11 @@ pub fn zobrist_hash(pos: &Position) -> u64 {
         }
     }
 
-    if pos.castling.white_kingside {
-        hash ^= ZOBRIST_CASTLING[0];
-    }
-    if pos.castling.white_queenside {
-        hash ^= ZOBRIST_CASTLING[1];
-    }
-    if pos.castling.black_kingside {
-        hash ^= ZOBRIST_CASTLING[2];
-    }
-    if pos.castling.black_queenside {
-        hash ^= ZOBRIST_CASTLING[3];
-    }
+    hash ^= ZOBRIST_CASTLING[pos.castling.encode() as usize];
 
     if let Some(ep_sq_idx) = pos.en_passant_square {
         let (file, _) = square_idx_to_coordinates(ep_sq_idx);
-        hash ^= ZOBRIST_EN_PASSANT[file as usize];
+        hash ^= ZOBRIST_EN_PASSANT_FILE[file as usize];
     }
 
     if pos.player_to_move == Player::Black {

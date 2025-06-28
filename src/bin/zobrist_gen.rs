@@ -4,7 +4,7 @@ use rand::Rng;
 const PIECE_TYPES: usize = 6;
 const COLORS: usize = 2;
 const SQUARES: usize = 64;
-const CASTLING_RIGHTS: usize = 4;
+const CASTLING_RIGHTS: usize = 16;  // 2^4 = 16, encoding each set independently
 const EN_PASSANT_FILES: usize = 8;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -35,7 +35,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
     writeln!(writer, "];\n")?;
 
-    writeln!(writer, "pub const ZOBRIST_EN_PASSANT: [u64; {EN_PASSANT_FILES}] = [")?;
+    writeln!(writer, "pub const ZOBRIST_EN_PASSANT_FILE: [u64; {EN_PASSANT_FILES}] = [")?;
     for _ in 0..EN_PASSANT_FILES {
         writeln!(writer, "    0x{:016x},", rng.random::<u64>())?;
     }

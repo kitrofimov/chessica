@@ -152,4 +152,11 @@ impl CastlingRights {
         }
         rights
     }
+
+    pub fn encode(&self) -> u8 {
+        (self.white_kingside  as u8) << 0 |
+        (self.white_queenside as u8) << 1 |
+        (self.black_kingside  as u8) << 2 |
+        (self.black_queenside as u8) << 3
+    }
 }

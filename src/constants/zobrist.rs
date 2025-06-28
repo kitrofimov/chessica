@@ -808,14 +808,26 @@ pub const ZOBRIST_PIECE: [[[u64; 64]; 2]; 6] = [
 	],
 ];
 
-pub const ZOBRIST_CASTLING: [u64; 4] = [
+pub const ZOBRIST_CASTLING: [u64; 16] = [
     0x721a99d6460169bb,
     0x172182fdfcbeb821,
     0xb7c752b4454c5269,
     0x044e7fe126e7aa6b,
+    0xdae80197d998dd60,
+    0x013157f7002dee8c,
+    0x40572b956a3e758c,
+    0xb186d73f6d722afe,
+    0x842f1286b5f1663d,
+    0x4d75f93ee1d5f3cf,
+    0xae1a957eec3c3aa9,
+    0xa145c1ca94954120,
+    0x590763fd4d5c262e,
+    0x52a8ccb72d0d81b5,
+    0x5c41584604bf17b8,
+    0xa556a2fc46f78a8b,
 ];
 
-pub const ZOBRIST_EN_PASSANT: [u64; 8] = [
+pub const ZOBRIST_EN_PASSANT_FILE: [u64; 8] = [
     0x04577667bc009d3a,
     0x6343fda61347e875,
     0xf2200d64725ae923,

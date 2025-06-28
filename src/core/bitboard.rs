@@ -1,4 +1,4 @@
-use crate::core::piece::Piece;
+use crate::{core::piece::Piece, utility::bit};
 
 pub type Bitboard = u64;
 
@@ -69,5 +69,24 @@ impl BitboardSet {
 
     pub fn count(&self, piece: Piece) -> u32 {
         self.piece_to_bb(piece).count_ones()
+    }
+
+    pub fn what(&self, sq_idx: u8) -> Option<Piece> {
+        let bb = bit(sq_idx);
+        if self.pawns & bb != 0 {
+            Some(Piece::Pawn)
+        } else if self.knights & bb != 0 {
+            Some(Piece::Knight)
+        } else if self.bishops & bb != 0 {
+            Some(Piece::Bishop)
+        } else if self.rooks & bb != 0 {
+            Some(Piece::Rook)
+        } else if self.queens & bb != 0 {
+            Some(Piece::Queen)
+        } else if self.king & bb != 0 {
+            Some(Piece::King)
+        } else {
+            None
+        }
     }
 }
