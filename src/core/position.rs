@@ -16,7 +16,6 @@ pub struct Position {
     pub player_to_move: Player,
     pub en_passant_square: Option<u8>,
     pub castling: CastlingRights,
-    pub halfmove_clock: usize,
     pub zobrist_hash: u64,
 }
 
@@ -103,7 +102,6 @@ impl Position {
             player_to_move: Player::White,
             en_passant_square: None,
             castling: CastlingRights::default(),
-            halfmove_clock: 0,
             zobrist_hash: 0,
         };
         pos.zobrist_hash = zobrist_hash(&pos);
@@ -163,7 +161,8 @@ impl Position {
         Ok(())
     }
 
-    pub fn from_fen(fen: &str) -> Result<Self, FenParseError> {
+    // Returns (position, halfmove_clock)
+    pub fn from_fen(fen: &str) -> Result<(Self, usize), FenParseError> {
         Self::validate_fen(fen)?;
 
         let mut w = BitboardSet::default();
@@ -222,15 +221,14 @@ impl Position {
             player_to_move: match side_to_move {
                 "w" => Player::White,
                 "b" => Player::Black,
-                _ => Player::White  // default to white
+                _   => unreachable!()
             },
             en_passant_square,
             castling,
-            halfmove_clock,
             zobrist_hash: 0,
         };
         pos.zobrist_hash = zobrist_hash(&pos);
-        Ok(pos)
+        Ok((pos, halfmove_clock))
     }
 
     // Mutate fields `w`, `b` and `occupied` so they are correct
@@ -287,7 +285,7 @@ mod tests {
 
     #[test]
     fn fen_start() -> Result<(), FenParseError> {
-        let pos = Position::from_fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")?;
+        let (pos, _) = Position::from_fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")?;
         assert_eq!(pos.w.pawns,   0x000000000000FF00);
         assert_eq!(pos.w.rooks,   0x0000000000000081);
         assert_eq!(pos.w.knights, 0x0000000000000042);
@@ -309,7 +307,7 @@ mod tests {
 
     #[test]
     fn fen_empty() -> Result<(), FenParseError> {
-        let pos = Position::from_fen("8/8/8/8/8/8/8/8 b - - 0 1")?;
+        let (pos, _) = Position::from_fen("8/8/8/8/8/8/8/8 b - - 0 1")?;
         assert_eq!(pos.w.pawns,   0x0);
         assert_eq!(pos.w.rooks,   0x0);
         assert_eq!(pos.w.knights, 0x0);
@@ -331,7 +329,7 @@ mod tests {
 
     #[test]
     fn fen_endgame() -> Result<(), FenParseError> {
-        let pos = Position::from_fen("4r3/2n5/8/6R1/3k4/8/1B6/4K3 w - - 0 1")?;
+        let (pos, _) = Position::from_fen("4r3/2n5/8/6R1/3k4/8/1B6/4K3 w - - 0 1")?;
         assert_eq!(pos.w.pawns,   0x0);
         assert_eq!(pos.w.rooks,   bit(38));
         assert_eq!(pos.w.knights, 0x0);

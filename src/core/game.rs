@@ -17,6 +17,7 @@ use crate::core::{
 #[derive(Clone)]
 pub struct Game {
     positions: Vec<Position>,
+    halfmove_clock: Vec<usize>,
     repetition_table: HashMap<ZobristHash, u32>,
 }
 
@@ -28,6 +29,7 @@ impl Default for Game {
 
         Game {
             positions: vec![pos],
+            halfmove_clock: vec![0],
             repetition_table: map,
         }
     }
@@ -40,17 +42,19 @@ impl Game {
 
         Game {
             positions: vec![pos],
+            halfmove_clock: vec![0],
             repetition_table: map,
         }
     }
 
     pub fn from_fen(fen: &str) -> Result<Game, FenParseError> {
-        let pos = Position::from_fen(fen)?;
+        let (pos, clock) = Position::from_fen(fen)?;
         let mut map = HashMap::new();
         map.insert(pos.zobrist_hash, 1);
 
         Ok(Game {
             positions: vec![pos],
+            halfmove_clock: vec![clock],
             repetition_table: map,
         })
     }
@@ -59,13 +63,18 @@ impl Game {
         self.positions.last().unwrap()
     }
 
+    pub fn halfmove_clock(&self) -> &usize {
+        self.halfmove_clock.last().unwrap()
+    }
+
     pub fn pseudo_moves(&self) -> Vec<Move> {
         pseudo_moves(self.position())
     }
 
     pub fn try_to_make_move(&mut self, m: &Move) -> bool {
         let pos = self.position();
-        let new = make_move(pos, m);
+        let mut clock = *self.halfmove_clock.last().unwrap();
+        let new = make_move(pos, m, &mut clock);
 
         // Check legality of a move (is player that made the move still in check?)
         // Using `pos.player_to_move` because the flag was already flipped in `new`
@@ -74,16 +83,19 @@ impl Game {
         }
 
         self.positions.push(new);
+        self.halfmove_clock.push(clock);
         *self.repetition_table.entry(new.zobrist_hash).or_insert(0) += 1;
 
         true
     }
 
     pub fn unmake_move(&mut self) {
-        let hash = self.position().zobrist_hash;
         // Unwrapping safely because this entry should already be created by `make_move`
+        let hash = self.position().zobrist_hash;
         *self.repetition_table.get_mut(&hash).unwrap() -= 1;
+
         self.positions.pop();
+        self.halfmove_clock.pop();
     }
 
     // UTTERLY INSANE IMPLEMENTATION that works
@@ -120,7 +132,7 @@ impl Game {
         }
 
         // 50-move rule
-        if self.position().halfmove_clock >= 100 {
+        if *self.halfmove_clock() >= 100 {
             return (0, false);
         }
 
@@ -259,6 +271,15 @@ mod tests {
         }
 
         assert_eq!(*game.repetition_table.get(&game.position().zobrist_hash).unwrap(), 3);
+        Ok(())
+    }
+
+    #[test]
+    fn fifty_move_rule() -> Result<(), FenParseError> {
+        let mut game = Game::from_fen("8/3k4/1n6/8/8/5N2/3K4/8 w - - 99 1")?;
+        let m = Move::new(board::F3, board::G5, Piece::Knight, false);
+        game.try_to_make_move(&m);
+        assert_eq!(*game.halfmove_clock(), 100);
         Ok(())
     }
 }

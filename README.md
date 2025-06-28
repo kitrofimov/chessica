@@ -18,7 +18,7 @@ TODO list towards a minimal-working prototype:
     - [x] Alpha-beta pruning
 - [ ] Subtleties & polishing:
     - [x] 50 move rule
-        - [ ] Should `halfmove_clock` be inside `Position` or `Game`? Also see about the slowdown down below
+        - [x] Move `halfmove_clock` inside `Game`
     - [x] Threefold repetition
         - [x] Zobrist hashing
             - [x] Naive
