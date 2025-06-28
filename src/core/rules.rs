@@ -11,81 +11,38 @@ use crate::core::{
 
 pub fn make_move(pos: &Position, m: &Move) -> Position {
     let mut new = pos.clone();
-    new.halfmove_clock += 1;
-
-    // XOR the old castling rights out
-    new.zobrist_hash ^= ZOBRIST_CASTLING[new.castling.encode() as usize];
 
     let who_made_move = pos.player_to_move;
-    let (friendly, hostile, kingside, queenside) = match who_made_move {
-        Player::White => (
-            &mut new.w, &mut new.b,
-            &mut new.castling.white_kingside, &mut new.castling.white_queenside
-        ),
-        Player::Black => (
-            &mut new.b, &mut new.w,
-            &mut new.castling.black_kingside, &mut new.castling.black_queenside
-        ),
-    };
+    let old_castling = new.castling;
 
-    calculate_en_passant_square(&mut new.zobrist_hash, &mut new.en_passant_square, m);
+    update_en_passant_square(&mut new, m);
 
-    if m.kingside_castling || m.queenside_castling {
-        handle_castling(&mut new.zobrist_hash, m, friendly, who_made_move, kingside, queenside);
+    if m.is_castling() {
+        handle_castling(&mut new, m, who_made_move);
     } else {
-        update_castling_rights(m, who_made_move, &mut new.castling);
-
-        if m.piece == Piece::Pawn {
-            new.halfmove_clock = 0;
-        }
-
-        if let Some(promotion_piece) = m.promotion {
-            handle_promotion(&mut new.zobrist_hash, m, who_made_move, friendly, promotion_piece);
-        } else {
-            handle_non_promotion_move(&mut new.zobrist_hash, m, who_made_move, friendly);
-        }
-
-        if m.en_passant {
-            handle_en_passant(&mut new.zobrist_hash, m, hostile, who_made_move);
-        } else if m.capture {
-            new.halfmove_clock = 0;
-            handle_capture(&mut new.zobrist_hash, m, who_made_move, hostile, &mut new.castling);
-        }
+        handle_standard_move(&mut new, m, who_made_move);
     }
 
-    // XOR the new castling rights in
-    new.zobrist_hash ^= ZOBRIST_CASTLING[new.castling.encode() as usize];
-
-    new.update();
-    new.player_to_move = who_made_move.opposite();
-    new.zobrist_hash ^= ZOBRIST_SIDE_BLACK;
+    update_castling_hash(&mut new, old_castling);
+    finalize_move(&mut new);
     new
 }
 
-fn calculate_en_passant_square(hash: &mut u64, ep_sq: &mut Option<u8>, m: &Move) {
-    if let Some(prev_ep_sq) = ep_sq {
-        let (file, _) = square_idx_to_coordinates(*prev_ep_sq);
-        *hash ^= ZOBRIST_EN_PASSANT_FILE[file as usize];
+fn update_en_passant_square(new: &mut Position, m: &Move) {
+    if let Some(prev_ep_sq) = new.en_passant_square {
+        en_passant_hash(&mut new.zobrist_hash, prev_ep_sq);
     }
 
-    *ep_sq = if m.double_push {
+    new.en_passant_square = if m.double_push {
         let new_ep_sq = (m.from + m.to) / 2;
-        let (file, _) = square_idx_to_coordinates(new_ep_sq);
-        *hash ^= ZOBRIST_EN_PASSANT_FILE[file as usize];
+        en_passant_hash(&mut new.zobrist_hash, new_ep_sq);
         Some(new_ep_sq)
     } else {
         None
-    }
+    };
 }
 
-fn handle_castling(
-    hash: &mut u64,
-    m: &Move,
-    friendly: &mut BitboardSet,
-    who_made_move: Player,
-    kingside: &mut bool,
-    queenside: &mut bool
-) {
+fn handle_castling(new: &mut Position, m: &Move, who_made_move: Player) {
     let (rook_from, rook_to) = match (who_made_move, m.kingside_castling, m.queenside_castling) {
         (Player::White, true, _) => (board::H1, board::F1),
         (Player::White, _, true) => (board::A1, board::D1),
@@ -93,83 +50,152 @@ fn handle_castling(
         (Player::Black, _, true) => (board::A8, board::D8),
         _ => unreachable!(),
     };
+    let friendly = match who_made_move {
+        Player::White => &mut new.w,
+        Player::Black => &mut new.b,
+    };
 
     friendly.king = friendly.king.unset_bit(m.from).set_bit(m.to);
     friendly.rooks = friendly.rooks.unset_bit(rook_from).set_bit(rook_to);
 
-    *hash ^= ZOBRIST_PIECE[Piece::King.index()][who_made_move.index()][m.from as usize];
-    *hash ^= ZOBRIST_PIECE[Piece::King.index()][who_made_move.index()][m.to as usize];
+    let rook_move = Move::new(rook_from, rook_to, Piece::Rook, false);
 
-    *hash ^= ZOBRIST_PIECE[Piece::Rook.index()][who_made_move.index()][rook_from as usize];
-    *hash ^= ZOBRIST_PIECE[Piece::Rook.index()][who_made_move.index()][rook_to as usize];
+    apply_move_hash(&mut new.zobrist_hash, m, who_made_move);
+    apply_move_hash(&mut new.zobrist_hash, &rook_move, who_made_move);
 
-    *kingside = false;  // can't castle twice :)
-    *queenside = false;
+    new.castling.reset(who_made_move);
 }
 
-// There is also special code updating castling rights in `handle_capture`
-fn update_castling_rights(m: &Move, who_made_move: Player, rights: &mut CastlingRights) {
-    let (kingside, queenside) = match who_made_move {
-        Player::White => (&mut rights.white_kingside, &mut rights.white_queenside),
-        Player::Black => (&mut rights.black_kingside, &mut rights.black_queenside),
-    };
+fn toggle_piece_hash(hash: &mut u64, piece: Piece, player: Player, sq: u8) {
+    *hash ^= ZOBRIST_PIECE[piece.index()][player.index()][sq as usize];
+}
 
-    if m.piece == Piece::King {
-        *kingside = false;
-        *queenside = false;
-    } else if m.piece == Piece::Rook && !(*kingside == false && *queenside == false) {
-        if m.from == board::A1 || m.from == board::A8 {
-            *queenside = false;
-        } else if m.from == board::H1 || m.from == board::H8 {
-            *kingside = false
-        }
+fn apply_move_hash(hash: &mut u64, m: &Move, player: Player) {
+    toggle_piece_hash(hash, m.piece, player, m.from);
+    toggle_piece_hash(hash, m.piece, player, m.to);
+}
+
+fn en_passant_hash(hash: &mut u64, ep_sq: u8) {
+    let (file, _) = square_idx_to_coordinates(ep_sq);
+    *hash ^= ZOBRIST_EN_PASSANT_FILE[file as usize];
+}
+
+fn handle_standard_move(new: &mut Position, m: &Move, who_made_move: Player) {
+    update_castling_rights(&mut new.castling, m, who_made_move);
+
+    if m.piece == Piece::Pawn {
+        new.halfmove_clock = 0;
     }
+
+    // Borrow checker workaround
+    let mut castling = new.castling;
+    let mut hash = new.zobrist_hash;
+
+    let (friendly, hostile) = new.perspective_mut(who_made_move);
+
+    if let Some(promotion_piece) = m.promotion {
+        handle_promotion(friendly, m, &mut hash, who_made_move, promotion_piece);
+    } else {
+        handle_normal_move(friendly, m, &mut hash, who_made_move);
+    }
+
+    if m.en_passant {
+        handle_en_passant(hostile, m, &mut hash, who_made_move);
+    } else if m.capture {
+        handle_capture(hostile, m, &mut hash, &mut castling, who_made_move);
+    }
+
+    new.castling = castling;
+    new.zobrist_hash = hash;
 }
 
-fn handle_promotion(hash: &mut u64, m: &Move, who_made_move: Player, friendly: &mut BitboardSet, promotion_piece: Piece) {
+fn handle_promotion(
+    friendly: &mut BitboardSet,
+    m: &Move,
+    hash: &mut u64,
+    who_made_move: Player,
+    promotion_piece: Piece
+) {
     friendly.pawns = friendly.pawns.unset_bit(m.from);
     let bb = friendly.piece_to_bb_mut(promotion_piece);
     *bb = bb.set_bit(m.to);
-
-    *hash ^= ZOBRIST_PIECE[Piece::Pawn.index()][who_made_move.index()][m.from as usize];
-    *hash ^= ZOBRIST_PIECE[promotion_piece.index()][who_made_move.index()][m.to as usize];
+    toggle_piece_hash(hash, Piece::Pawn, who_made_move, m.from);
+    toggle_piece_hash(hash, promotion_piece, who_made_move, m.to);
 }
 
-fn handle_non_promotion_move(hash: &mut u64, m: &Move, who_made_move: Player, friendly: &mut BitboardSet) {
+fn handle_normal_move(
+    friendly: &mut BitboardSet,
+    m: &Move,
+    hash: &mut u64,
+    who_made_move: Player
+) {
     let bb = friendly.piece_to_bb_mut(m.piece);
     *bb = bb.unset_bit(m.from).set_bit(m.to);
-
-    *hash ^= ZOBRIST_PIECE[m.piece.index()][who_made_move.index()][m.from as usize];
-    *hash ^= ZOBRIST_PIECE[m.piece.index()][who_made_move.index()][m.to as usize];
+    toggle_piece_hash(hash, m.piece, who_made_move, m.from);
+    toggle_piece_hash(hash, m.piece, who_made_move, m.to);
 }
 
-fn handle_en_passant(hash: &mut u64, m: &Move, hostile: &mut BitboardSet, who_made_move: Player) {
-    match who_made_move {
-        Player::White => {
-            hostile.pawns = hostile.pawns.unset_bit(m.to - 8);
-            *hash ^= ZOBRIST_PIECE[Piece::Pawn.index()][who_made_move.opposite().index()][(m.to - 8) as usize];
-        }
-        Player::Black => {
-            hostile.pawns = hostile.pawns.unset_bit(m.to + 8);
-            *hash ^= ZOBRIST_PIECE[Piece::Pawn.index()][who_made_move.opposite().index()][(m.to + 8) as usize];
-        }
-    }
+fn handle_en_passant(
+    hostile: &mut BitboardSet,
+    m: &Move,
+    hash: &mut u64,
+    who_made_move: Player
+) {
+    let captured_pawn_sq = match who_made_move {
+        Player::White => m.to - 8,
+        Player::Black => m.to + 8,
+    };
+    hostile.pawns = hostile.pawns.unset_bit(captured_pawn_sq);
+    toggle_piece_hash(hash, Piece::Pawn, who_made_move.opposite(), captured_pawn_sq);
 }
 
-fn handle_capture(hash: &mut u64, m: &Move, who_made_move: Player, hostile: &mut BitboardSet, castling: &mut CastlingRights) {
-    let piece = hostile.what(m.to)
-        .expect("handle_capture called when there is no piece to capture. Is this some error in move generation?");
+fn handle_capture(
+    hostile: &mut BitboardSet,
+    m: &Move,
+    hash: &mut u64,
+    castling: &mut CastlingRights,
+    who_made_move: Player
+) {
+    let captured_piece = hostile.what(m.to)
+        .expect("tried to capture an empty square");
+
     hostile.unset_bit(m.to);
-    *hash ^= ZOBRIST_PIECE[piece.index()][who_made_move.opposite().index()][m.to as usize];
+    toggle_piece_hash(hash, captured_piece, who_made_move.opposite(), m.to);
 
-    // Capturing rook square disables castling - harmless if no rook was there
+    // Update castling rights
     match m.to {
-        board::A1 => castling.white_queenside = false,
-        board::H1 => castling.white_kingside = false,
-        board::A8 => castling.black_queenside = false,
-        board::H8 => castling.black_kingside = false,
+        board::A1 => castling.reset_side(Player::White, CastlingSide::QueenSide),
+        board::H1 => castling.reset_side(Player::White, CastlingSide::KingSide),
+        board::A8 => castling.reset_side(Player::Black, CastlingSide::QueenSide),
+        board::H8 => castling.reset_side(Player::Black, CastlingSide::KingSide),
         _ => {}
     }
+}
+
+fn update_castling_rights(castling: &mut CastlingRights, m: &Move, who_made_move: Player) {
+    match m.piece {
+        Piece::King => castling.reset(who_made_move),
+        Piece::Rook if castling.any(who_made_move) => {
+            match m.from {
+                board::A1 | board::A8 => castling.reset_side(who_made_move, CastlingSide::QueenSide),
+                board::H1 | board::H8 => castling.reset_side(who_made_move, CastlingSide::KingSide),
+                _ => {}
+            }
+        }
+        _ => {}
+    }
+}
+
+fn update_castling_hash(new: &mut Position, old_castling: CastlingRights) {
+    new.zobrist_hash ^= ZOBRIST_CASTLING[old_castling.encode() as usize];
+    new.zobrist_hash ^= ZOBRIST_CASTLING[new.castling.encode() as usize];
+}
+
+fn finalize_move(new: &mut Position) {
+    new.update();
+    new.player_to_move = new.player_to_move.opposite();
+    new.zobrist_hash ^= ZOBRIST_SIDE_BLACK;
+    new.halfmove_clock += 1;
 }
 
 pub fn is_square_attacked(pos: &Position, sq: usize, by_player: Player) -> bool {

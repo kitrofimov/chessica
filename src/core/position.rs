@@ -271,6 +271,13 @@ impl Position {
             None
         }
     }
+
+    pub fn perspective_mut(&mut self, player: Player) -> (&mut BitboardSet, &mut BitboardSet) {
+        match player {
+            Player::White => (&mut self.w, &mut self.b),
+            Player::Black => (&mut self.b, &mut self.w),
+        }
+    }
 }
 
 

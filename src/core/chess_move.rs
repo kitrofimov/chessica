@@ -77,6 +77,10 @@ impl Move {
             queenside_castling: side == CastlingSide::QueenSide,
         }
     }
+
+    pub fn is_castling(&self) -> bool {
+        self.kingside_castling | self.queenside_castling
+    }
 }
 
 
@@ -158,5 +162,34 @@ impl CastlingRights {
         (self.white_queenside as u8) << 1 |
         (self.black_kingside  as u8) << 2 |
         (self.black_queenside as u8) << 3
+    }
+
+    pub fn reset(&mut self, player: Player) {
+        match player {
+            Player::White => {
+                self.white_kingside = false;
+                self.white_queenside = false;
+            }
+            Player::Black => {
+                self.black_kingside = false;
+                self.black_queenside = false;
+            }
+        }
+    }
+
+    pub fn reset_side(&mut self, player: Player, side: CastlingSide) {
+        match (player, side) {
+            (Player::White, CastlingSide::QueenSide) => self.white_queenside = false,
+            (Player::White, CastlingSide::KingSide)  => self.white_kingside  = false,
+            (Player::Black, CastlingSide::QueenSide) => self.black_queenside = false,
+            (Player::Black, CastlingSide::KingSide)  => self.black_kingside  = false,
+        }
+    }
+
+    pub fn any(&self, player: Player) -> bool {
+        match player {
+            Player::White => self.white_kingside | self.white_queenside,
+            Player::Black => self.black_kingside | self.black_queenside,
+        }
     }
 }
