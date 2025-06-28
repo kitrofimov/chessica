@@ -1,5 +1,6 @@
 use std::{
     cmp::{max, min},
+    collections::HashMap,
     sync::{atomic::{AtomicBool, Ordering}, Arc},
     time::{Duration, Instant}
 };
@@ -9,32 +10,48 @@ use crate::core::{
     movegen::pseudo_moves,
     player::Player,
     position::*,
-    rules::{is_king_in_check, make_move}
+    rules::{is_king_in_check, make_move},
+    zobrist::ZobristHash,
 };
 
 #[derive(Clone)]
 pub struct Game {
     positions: Vec<Position>,
+    repetition_table: HashMap<ZobristHash, u32>,
 }
 
 impl Default for Game {
     fn default() -> Self {
+        let pos = Position::default();
+        let mut map = HashMap::new();
+        map.insert(pos.zobrist_hash, 1);
+
         Game {
-            positions: vec![Position::default()]
+            positions: vec![pos],
+            repetition_table: map,
         }
     }
 }
 
 impl Game {
     pub fn new(pos: Position) -> Game {
+        let mut map = HashMap::new();
+        map.insert(pos.zobrist_hash, 1);
+
         Game {
-            positions: vec![pos]
+            positions: vec![pos],
+            repetition_table: map,
         }
     }
 
     pub fn from_fen(fen: &str) -> Result<Game, FenParseError> {
+        let pos = Position::from_fen(fen)?;
+        let mut map = HashMap::new();
+        map.insert(pos.zobrist_hash, 1);
+
         Ok(Game {
-            positions: vec![Position::from_fen(fen)?]
+            positions: vec![pos],
+            repetition_table: map,
         })
     }
 
@@ -57,10 +74,15 @@ impl Game {
         }
 
         self.positions.push(new);
+        *self.repetition_table.entry(new.zobrist_hash).or_insert(0) += 1;
+
         true
     }
 
     pub fn unmake_move(&mut self) {
+        let hash = self.position().zobrist_hash;
+        // Unwrapping safely because this entry should already be created by `make_move`
+        *self.repetition_table.get_mut(&hash).unwrap() -= 1;
         self.positions.pop();
     }
 
@@ -91,6 +113,11 @@ impl Game {
         nodes: &mut u64
     ) -> (i32, bool) {
         *nodes += 1;
+
+        // Threefold repetition rule
+        if self.repetition_table[&self.position().zobrist_hash] == 3 {
+            return (0, false);
+        }
 
         // 50-move rule
         if self.position().halfmove_clock >= 100 {
@@ -205,5 +232,33 @@ impl Game {
         }
 
         (best_move, best_score, nodes, false)
+    }
+}
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::constants::board;
+    use crate::core::piece::Piece;
+
+    #[test]
+    fn threefold_repetition() -> Result<(), FenParseError> {
+        let mut game = Game::from_fen("8/2r5/8/4k3/8/6R1/3K4/8 w - - 0 1")?;
+
+        let m1 = Move::new(board::G3, board::F3, Piece::Rook, false);
+        let m2 = Move::new(board::C7, board::C6, Piece::Rook, false);
+        let m3 = Move::new(board::F3, board::G3, Piece::Rook, false);
+        let m4 = Move::new(board::C6, board::C7, Piece::Rook, false);
+
+        for _ in 0..2 {
+            game.try_to_make_move(&m1);
+            game.try_to_make_move(&m2);
+            game.try_to_make_move(&m3);
+            game.try_to_make_move(&m4);
+        }
+
+        assert_eq!(*game.repetition_table.get(&game.position().zobrist_hash).unwrap(), 3);
+        Ok(())
     }
 }
