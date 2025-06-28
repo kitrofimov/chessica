@@ -1,7 +1,7 @@
 # chess-engine
 Hobby-level, bitboard-representation chess engine
 
-TODO list towards a minimal-working prototype:
+## TODO-list towards a minimal-working prototype:
 - [x] Move generation:
     - [x] Implement castling
     - [x] Discard illegal moves ~~/ generate only legal moves~~
@@ -16,20 +16,6 @@ TODO list towards a minimal-working prototype:
     - [x] Naive material evaluation function
     - [x] Minimax searching algorithm
     - [x] Alpha-beta pruning
-- [ ] Subtleties & polishing:
-    - [x] 50 move rule
-        - [x] Move `halfmove_clock` inside `Game`
-    - [x] Threefold repetition
-        - [x] Zobrist hashing
-            - [x] Naive
-            - [x] Incremental updating when calling `make_move`
-        - [x] Repetition table
-    - [x] Insufficient material
-    - [ ] Why `perft` became so slow? Did the cloning of `Game`s become too expensive?
-    - [ ] What does happen when minimax stumbles upon checkmate or stalemate?
-    - [ ] Forced mate evaluation?
-    - [ ] Do all the TODO comments
-    - [ ] Come up with a cool name and rename the project
 - [x] Universal Chess Interface (UCI)
     - [x] Should be handling CLI input on the second thread
     - [x] Add `go depth X`, `go movetime X`, `go wtime X btime Y winc Z binc W`
@@ -48,6 +34,26 @@ TODO list towards a minimal-working prototype:
         - Make `Position` a *pure struct*: only data, no knowledge about rules / move making / etc. => extracted `rules.rs` for this purpose. Refactored `make_move`
         - Implement FEN validation
         - A ton of other small tweaks: comments & etc.
+- [ ] Subtleties & polishing:
+    - [x] 50 move rule
+        - [x] Move `halfmove_clock` inside `Game`
+    - [x] Threefold repetition
+        - [x] Zobrist hashing
+            - [x] Naive
+            - [x] Incremental updating when calling `make_move`
+        - [x] Repetition table
+    - [x] Insufficient material
+    - [ ] Why `perft` became so slow? Did the cloning of `Game`s become too expensive?
+    - [ ] What does happen when minimax stumbles upon checkmate or stalemate?
+    - [ ] Forced mate evaluation?
+    - [ ] Do all the TODO comments
+    - [ ] Come up with a cool name and rename the project
+
+## Roadmap
+- [ ] Transposition table
+- [ ] Better evaluation function
+- [ ] Opening book
+- [ ] Endgame database
 
 ## Building
 
