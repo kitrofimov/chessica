@@ -43,7 +43,8 @@ Hobby-level, bitboard-representation chess engine
             - [x] Incremental updating when calling `make_move`
         - [x] Repetition table
     - [x] Insufficient material
-    - [ ] Why `perft` became so slow? Did the cloning of `Game`s become too expensive?
+    - [x] Why `perft` became so slow? Did the cloning of `Game`s become too expensive?
+        - Optimized: (22 mil NPS =>) 4 mil NPS => 13 mil NPS => 19 mil NPS
     - [ ] What does happen when minimax stumbles upon checkmate or stalemate?
     - [ ] Forced mate evaluation?
     - [ ] Do all the TODO comments
