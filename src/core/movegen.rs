@@ -1,15 +1,15 @@
-use crate::core::{
+use crate::{core::{
     chess_move::{CastlingSide::*, *},
     piece::Piece,
     player::Player,
     position::*,
     rules::is_square_attacked,
-};
+}};
 use crate::utility::*;
-use crate::constants::{board::*, attacks::*, magics::*, masks::*};
+use crate::constants::{board::*, attacks::*, magics::*, masks::*, *};
 
 pub fn pseudo_moves(pos: &Position) -> Vec<Move> {
-    let mut moves = Vec::new();
+    let mut moves = Vec::with_capacity(MOVE_LIST_CAPACITY);
     pseudo_pawn_moves(&pos, &mut moves);
     pseudo_moves_for_piece(&pos, Piece::Knight, &mut moves);
     pseudo_moves_for_piece(&pos, Piece::Bishop, &mut moves);
@@ -17,6 +17,7 @@ pub fn pseudo_moves(pos: &Position) -> Vec<Move> {
     pseudo_moves_for_piece(&pos, Piece::Queen, &mut moves);
     pseudo_moves_for_piece(&pos, Piece::King, &mut moves);
     pseudo_castling_moves(&pos, &mut moves);
+    // TODO: move ordering?
     moves
 }
 

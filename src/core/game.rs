@@ -11,6 +11,7 @@ use crate::core::{
     position::*,
     rules::{is_insufficient_material, is_king_in_check, make_move},
 };
+use crate::constants::*;
 
 #[derive(Clone)]
 pub struct Game {
@@ -20,28 +21,36 @@ pub struct Game {
 
 impl Default for Game {
     fn default() -> Self {
-        let pos = Position::default();
-        Game {
-            positions: vec![pos],
-            halfmove_clock: vec![0],
-        }
+        let mut positions      = Vec::with_capacity(GAME_HISTORY_CAPACITY);
+        let mut halfmove_clock = Vec::with_capacity(GAME_HISTORY_CAPACITY);
+
+        positions.push(Position::default());
+        halfmove_clock.push(0);
+
+        Game { positions, halfmove_clock }
     }
 }
 
 impl Game {
     pub fn new(pos: Position) -> Game {
-        Game {
-            positions: vec![pos],
-            halfmove_clock: vec![0],
-        }
+        let mut positions      = Vec::with_capacity(GAME_HISTORY_CAPACITY);
+        let mut halfmove_clock = Vec::with_capacity(GAME_HISTORY_CAPACITY);
+
+        positions.push(pos);
+        halfmove_clock.push(0);
+
+        Game { positions, halfmove_clock }
     }
 
     pub fn from_fen(fen: &str) -> Result<Game, FenParseError> {
+        let mut positions      = Vec::with_capacity(GAME_HISTORY_CAPACITY);
+        let mut halfmove_clock = Vec::with_capacity(GAME_HISTORY_CAPACITY);
+
         let (pos, clock) = Position::from_fen(fen)?;
-        Ok(Game {
-            positions: vec![pos],
-            halfmove_clock: vec![clock],
-        })
+        positions.push(pos);
+        halfmove_clock.push(clock);
+
+        Ok(Game { positions, halfmove_clock })
     }
 
     pub fn position(&self) -> &Position {
