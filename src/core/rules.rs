@@ -9,28 +9,44 @@ use crate::core::{
     piece::Piece,
 };
 
-pub fn make_move(pos: &Position, m: &Move, halfmove_clock: &mut usize) -> Position {
-    let mut new = pos.clone();
+#[derive(Clone)]
+pub struct UndoData {
+    pub move_to_undo: Move,
+    pub captured_piece: Option<Piece>,
+    pub castling: CastlingRights,
+    pub en_passant_square: Option<u8>,
+    pub halfmove_clock: usize,
+    pub zobrist_hash: u64,
+}
 
+pub fn make_move(pos: &mut Position, m: &Move, halfmove_clock: &mut usize) -> UndoData {
     let who_made_move = pos.player_to_move;
-    let old_castling = new.castling;
 
-    update_en_passant_square(&mut new, m);
+    let mut undo = UndoData {
+        move_to_undo: *m,
+        captured_piece: None,
+        castling: pos.castling,
+        en_passant_square: pos.en_passant_square,
+        halfmove_clock: *halfmove_clock,
+        zobrist_hash: pos.zobrist_hash,
+    };
+
+    update_en_passant_square(pos, m);
 
     if m.is_castling() {
-        handle_castling(&mut new, m, who_made_move);
+        handle_castling(pos, m, who_made_move);
     } else {
-        update_castling_rights(&mut new.castling, m, who_made_move);
+        update_castling_rights(&mut pos.castling, m, who_made_move);
 
-        if m.piece == Piece::Pawn {
+        if m.piece == Piece::Pawn || m.capture {
             *halfmove_clock = 0;
         }
 
         // Borrow checker workaround
-        let mut castling = new.castling;
-        let mut hash = new.zobrist_hash;
+        let mut castling = pos.castling;
+        let mut hash = pos.zobrist_hash;
 
-        let (friendly, hostile) = new.perspective_mut(who_made_move);
+        let (friendly, hostile) = pos.perspective_mut(who_made_move);
 
         if let Some(promotion_piece) = m.promotion {
             handle_promotion(friendly, m, &mut hash, who_made_move, promotion_piece);
@@ -41,16 +57,18 @@ pub fn make_move(pos: &Position, m: &Move, halfmove_clock: &mut usize) -> Positi
         if m.en_passant {
             handle_en_passant(hostile, m, &mut hash, who_made_move);
         } else if m.capture {
-            handle_capture(hostile, m, &mut hash, &mut castling, who_made_move);
+            undo.captured_piece = hostile.what(m.to);
+            handle_capture(hostile, m, &mut hash, &mut castling, who_made_move, undo.captured_piece.unwrap());
         }
 
-        new.castling = castling;
-        new.zobrist_hash = hash;
+        pos.castling = castling;
+        pos.zobrist_hash = hash;
     }
 
-    update_castling_hash(&mut new, old_castling);
-    finalize_move(&mut new, halfmove_clock);
-    new
+    update_castling_hash(pos, undo.castling);
+    finalize_move(pos, halfmove_clock);
+
+    undo
 }
 
 fn update_en_passant_square(new: &mut Position, m: &Move) {
@@ -150,11 +168,9 @@ fn handle_capture(
     m: &Move,
     hash: &mut u64,
     castling: &mut CastlingRights,
-    who_made_move: Player
+    who_made_move: Player,
+    captured_piece: Piece,
 ) {
-    let captured_piece = hostile.what(m.to)
-        .expect("tried to capture an empty square");
-
     hostile.unset_bit(m.to);
     toggle_piece_hash(hash, captured_piece, who_made_move.opposite(), m.to);
 
@@ -263,6 +279,77 @@ pub fn is_insufficient_material(pos: &Position) -> bool {
     false
 }
 
+pub fn unmake_move(pos: &mut Position, undo: UndoData, halfmove_clock: &mut usize) {
+    let who_moved = pos.player_to_move.opposite();
+    let m = undo.move_to_undo;
+
+    pos.castling = undo.castling;
+    pos.en_passant_square = undo.en_passant_square;
+    pos.zobrist_hash = undo.zobrist_hash;
+    *halfmove_clock = undo.halfmove_clock;
+    pos.player_to_move = who_moved;
+
+    let (friendly, hostile) = pos.perspective_mut(who_moved);
+
+    if m.is_castling() {
+        undo_castling(pos, &m, who_moved);
+    } else {
+        if let Some(_) = m.promotion {
+            undo_promotion(friendly, &m);
+        } else {
+            undo_non_promotion_move(friendly, &m);
+        }
+
+        if m.en_passant {
+            undo_en_passant(hostile, &m, who_moved);
+        } else if m.capture {
+            undo_capture(hostile, &m, undo.captured_piece.unwrap());
+        }
+    }
+
+    pos.update();
+}
+
+fn undo_castling(pos: &mut Position, m: &Move, who: Player) {
+    let (friendly, _) = pos.perspective_mut(who);
+
+    let (rook_from, rook_to) = match (who, m.kingside_castling, m.queenside_castling) {
+        (Player::White, true, _) => (board::H1, board::F1),
+        (Player::White, _, true) => (board::A1, board::D1),
+        (Player::Black, true, _) => (board::H8, board::F8),
+        (Player::Black, _, true) => (board::A8, board::D8),
+        _ => unreachable!(),
+    };
+
+    friendly.unset_bit(m.to);
+    friendly.set_bit(m.from, Piece::King);
+
+    friendly.unset_bit(rook_to);
+    friendly.set_bit(rook_from, Piece::Rook);
+}
+
+fn undo_promotion(friendly: &mut BitboardSet, m: &Move) {
+    friendly.unset_bit(m.to);
+    friendly.set_bit(m.from, Piece::Pawn);
+}
+
+fn undo_non_promotion_move(friendly: &mut BitboardSet, m: &Move) {
+    friendly.unset_bit(m.to);
+    friendly.set_bit(m.from, m.piece);
+}
+
+fn undo_capture(hostile: &mut BitboardSet, m: &Move, captured: Piece) {
+    hostile.set_bit(m.to, captured);
+}
+
+fn undo_en_passant(hostile: &mut BitboardSet, m: &Move, who: Player) {
+    let sq = match who {
+        Player::White => m.to - 8,
+        Player::Black => m.to + 8,
+    };
+    hostile.set_bit(sq, Piece::Pawn);
+}
+
 
 #[cfg(test)]
 mod tests {
@@ -272,148 +359,148 @@ mod tests {
 
     #[test]
     fn make_move_knight() -> Result<(), FenParseError> {
-        let (pos, _) = Position::from_fen("8/1k6/3r4/8/4N3/8/1K6/8 w - - 0 1")?;
+        let (mut pos, _) = Position::from_fen("8/1k6/3r4/8/4N3/8/1K6/8 w - - 0 1")?;
         let m = Move::new(28, 43, Piece::Knight, true);
         let mut clock = 0;
-        let new = make_move(&pos, &m, &mut clock);
+        make_move(&mut pos, &m, &mut clock);
 
-        assert_eq!(new.w.king, bit(9));
-        assert_eq!(new.w.knights, bit(43));
-        assert_eq!(new.w.all, bit(9) | bit(43));
+        assert_eq!(pos.w.king, bit(9));
+        assert_eq!(pos.w.knights, bit(43));
+        assert_eq!(pos.w.all, bit(9) | bit(43));
 
-        assert_eq!(new.b.king, bit(49));
-        assert_eq!(new.b.rooks, 0x0);
-        assert_eq!(new.b.all, bit(49));
+        assert_eq!(pos.b.king, bit(49));
+        assert_eq!(pos.b.rooks, 0x0);
+        assert_eq!(pos.b.all, bit(49));
 
-        assert_eq!(new.occupied, bit(9) | bit(43) | bit(49));
+        assert_eq!(pos.occupied, bit(9) | bit(43) | bit(49));
         Ok(())
     }
 
     #[test]
     fn make_move_rook() -> Result<(), FenParseError> {
-        let (pos, _) = Position::from_fen("8/8/8/5r2/8/1k6/5Q2/1K6 b - - 0 1")?;
+        let (mut pos, _) = Position::from_fen("8/8/8/5r2/8/1k6/5Q2/1K6 b - - 0 1")?;
         let m = Move::new(37, 13, Piece::Rook, true);
         let mut clock = 0;
-        let new = make_move(&pos, &m, &mut clock);
+        make_move(&mut pos, &m, &mut clock);
 
-        assert_eq!(new.w.king, bit(1));
-        assert_eq!(new.w.queens, 0x0);
-        assert_eq!(new.w.all, bit(1));
+        assert_eq!(pos.w.king, bit(1));
+        assert_eq!(pos.w.queens, 0x0);
+        assert_eq!(pos.w.all, bit(1));
 
-        assert_eq!(new.b.king, bit(17));
-        assert_eq!(new.b.rooks, bit(13));
-        assert_eq!(new.b.all, bit(13) | bit(17));
+        assert_eq!(pos.b.king, bit(17));
+        assert_eq!(pos.b.rooks, bit(13));
+        assert_eq!(pos.b.all, bit(13) | bit(17));
         Ok(())
     }
 
     #[test]
     fn make_move_king() -> Result<(), FenParseError> {
-        let (pos, _) = Position::from_fen("8/5kq1/1R6/8/3K4/8/8/8 w - - 0 1")?;
+        let (mut pos, _) = Position::from_fen("8/5kq1/1R6/8/3K4/8/8/8 w - - 0 1")?;
         let m = Move::new(27, 35, Piece::King, false);
         let mut clock = 0;
-        let new = make_move(&pos, &m, &mut clock);
+        make_move(&mut pos, &m, &mut clock);
 
-        assert_eq!(new.w.rooks, bit(41));
-        assert_eq!(new.w.king, bit(35));
-        assert_eq!(new.w.all, bit(35) | bit(41));
+        assert_eq!(pos.w.rooks, bit(41));
+        assert_eq!(pos.w.king, bit(35));
+        assert_eq!(pos.w.all, bit(35) | bit(41));
 
-        assert_eq!(new.b.king, bit(53));
-        assert_eq!(new.b.queens, bit(54));
-        assert_eq!(new.b.all, bit(53) | bit(54));
+        assert_eq!(pos.b.king, bit(53));
+        assert_eq!(pos.b.queens, bit(54));
+        assert_eq!(pos.b.all, bit(53) | bit(54));
         Ok(())
     }
 
     #[test]
     fn make_move_bishop() -> Result<(), FenParseError> {
-        let (pos, _) = Position::from_fen("8/2k5/8/4K3/1r6/8/3B4/8 w - - 0 1")?;
+        let (mut pos, _) = Position::from_fen("8/2k5/8/4K3/1r6/8/3B4/8 w - - 0 1")?;
         let m = Move::new(11, 25, Piece::Bishop, true);
         let mut clock = 0;
-        let new = make_move(&pos, &m, &mut clock);
+        make_move(&mut pos, &m, &mut clock);
 
-        assert_eq!(new.w.king, bit(36));
-        assert_eq!(new.w.bishops, bit(25));
-        assert_eq!(new.w.all, bit(25) | bit(36));
+        assert_eq!(pos.w.king, bit(36));
+        assert_eq!(pos.w.bishops, bit(25));
+        assert_eq!(pos.w.all, bit(25) | bit(36));
 
-        assert_eq!(new.b.king, bit(50));
-        assert_eq!(new.b.rooks, 0x0);
-        assert_eq!(new.b.all, bit(50));
+        assert_eq!(pos.b.king, bit(50));
+        assert_eq!(pos.b.rooks, 0x0);
+        assert_eq!(pos.b.all, bit(50));
         Ok(())
     }
 
     #[test]
     fn make_move_queen() -> Result<(), FenParseError> {
-        let (pos, _) = Position::from_fen("8/8/1kq5/8/5K2/2R5/8/8 b - - 0 1")?;
+        let (mut pos, _) = Position::from_fen("8/8/1kq5/8/5K2/2R5/8/8 b - - 0 1")?;
         let m = Move::new(42, 18, Piece::Queen, true);
         let mut clock = 0;
-        let new = make_move(&pos, &m, &mut clock);
+        make_move(&mut pos, &m, &mut clock);
 
-        assert_eq!(new.w.king, bit(29));
-        assert_eq!(new.w.rooks, 0x0);
-        assert_eq!(new.w.all, bit(29));
+        assert_eq!(pos.w.king, bit(29));
+        assert_eq!(pos.w.rooks, 0x0);
+        assert_eq!(pos.w.all, bit(29));
 
-        assert_eq!(new.b.king, bit(41));
-        assert_eq!(new.b.queens, bit(18));
-        assert_eq!(new.b.all, bit(18) | bit(41));
+        assert_eq!(pos.b.king, bit(41));
+        assert_eq!(pos.b.queens, bit(18));
+        assert_eq!(pos.b.all, bit(18) | bit(41));
         Ok(())
     }
 
     #[test]
     fn make_move_white_kingside_castling() -> Result<(), FenParseError> {
-        let (pos, _) = Position::from_fen("rn1qkbnr/ppp2ppp/3p4/4p3/2B1P1b1/5N2/PPPP1PPP/RNBQK2R w KQkq - 2 4")?;
+        let (mut pos, _) = Position::from_fen("rn1qkbnr/ppp2ppp/3p4/4p3/2B1P1b1/5N2/PPPP1PPP/RNBQK2R w KQkq - 2 4")?;
         let m = Move::castling(Player::White, CastlingSide::KingSide);
         let mut clock = 0;
-        let new = make_move(&pos, &m, &mut clock);
+        make_move(&mut pos, &m, &mut clock);
 
-        assert_eq!(new.w.all, pos.w.all & !(bit(4) | bit(7)) | bit(5) | bit(6));
-        assert_eq!(new.occupied, pos.occupied & !(bit(4) | bit(7)) | bit(5) | bit(6));
-        assert_eq!(new.b, pos.b);
-        assert_eq!(new.w.king, bit(6));
-        assert_eq!(new.w.rooks, bit(0) | bit(5));
+        assert_eq!(pos.w.all, pos.w.all & !(bit(4) | bit(7)) | bit(5) | bit(6));
+        assert_eq!(pos.occupied, pos.occupied & !(bit(4) | bit(7)) | bit(5) | bit(6));
+        assert_eq!(pos.b, pos.b);
+        assert_eq!(pos.w.king, bit(6));
+        assert_eq!(pos.w.rooks, bit(0) | bit(5));
         Ok(())
     }
 
     #[test]
     fn make_move_black_kingside_castling() -> Result<(), FenParseError> {
-        let (pos, _) = Position::from_fen("rnbqk2r/pppp1ppp/5n2/2b1p3/4P3/3PBN2/PPP2PPP/RN1QKB1R b KQkq - 4 4")?;
+        let (mut pos, _) = Position::from_fen("rnbqk2r/pppp1ppp/5n2/2b1p3/4P3/3PBN2/PPP2PPP/RN1QKB1R b KQkq - 4 4")?;
         let m = Move::castling(Player::Black, CastlingSide::KingSide);
         let mut clock = 0;
-        let new = make_move(&pos, &m, &mut clock);
+        make_move(&mut pos, &m, &mut clock);
 
-        assert_eq!(new.b.all, pos.b.all & !(bit(60) | bit(63)) | bit(61) | bit(62));
-        assert_eq!(new.occupied, pos.occupied & !(bit(60) | bit(63)) | bit(61) | bit(62));
-        assert_eq!(new.w, pos.w);
-        assert_eq!(new.b.king, bit(62));
-        assert_eq!(new.b.rooks, bit(56) | bit(61));
+        assert_eq!(pos.b.all, pos.b.all & !(bit(60) | bit(63)) | bit(61) | bit(62));
+        assert_eq!(pos.occupied, pos.occupied & !(bit(60) | bit(63)) | bit(61) | bit(62));
+        assert_eq!(pos.w, pos.w);
+        assert_eq!(pos.b.king, bit(62));
+        assert_eq!(pos.b.rooks, bit(56) | bit(61));
         Ok(())
     }
 
     #[test]
     fn make_move_white_queenside_castling() -> Result<(), FenParseError> {
-        let (pos, _) = Position::from_fen("rn2k1nr/ppp2ppp/3pbq2/2b1p2Q/4P3/2NPB3/PPP2PPP/R3KBNR w KQkq - 4 6")?;
+        let (mut pos, _) = Position::from_fen("rn2k1nr/ppp2ppp/3pbq2/2b1p2Q/4P3/2NPB3/PPP2PPP/R3KBNR w KQkq - 4 6")?;
         let m = Move::castling(Player::White, CastlingSide::QueenSide);
         let mut clock = 0;
-        let new = make_move(&pos, &m, &mut clock);
+        make_move(&mut pos, &m, &mut clock);
 
-        assert_eq!(new.w.all, pos.w.all & !(bit(0) | bit(4)) | bit(2) | bit(3));
-        assert_eq!(new.occupied, pos.occupied & !(bit(0) | bit(4)) | bit(2) | bit(3));
-        assert_eq!(new.b, pos.b);
-        assert_eq!(new.w.king, bit(2));
-        assert_eq!(new.w.rooks, bit(3) | bit(7));
+        assert_eq!(pos.w.all, pos.w.all & !(bit(0) | bit(4)) | bit(2) | bit(3));
+        assert_eq!(pos.occupied, pos.occupied & !(bit(0) | bit(4)) | bit(2) | bit(3));
+        assert_eq!(pos.b, pos.b);
+        assert_eq!(pos.w.king, bit(2));
+        assert_eq!(pos.w.rooks, bit(3) | bit(7));
         Ok(())
     }
 
     #[test]
     fn make_move_black_queenside_castling() -> Result<(), FenParseError> {
-        let (pos, _) = Position::from_fen("r3kbnr/ppp2ppp/2npbq2/4p1N1/4P3/2NPB3/PPP2PPP/R2QKB1R b KQkq - 7 6")?;
+        let (mut pos, _) = Position::from_fen("r3kbnr/ppp2ppp/2npbq2/4p1N1/4P3/2NPB3/PPP2PPP/R2QKB1R b KQkq - 7 6")?;
         let m = Move::castling(Player::Black, CastlingSide::QueenSide);
         let mut clock = 0;
-        let new = make_move(&pos, &m, &mut clock);
+        make_move(&mut pos, &m, &mut clock);
 
-        assert_eq!(new.b.all, pos.b.all & !(bit(56) | bit(60)) | bit(58) | bit(59));
-        assert_eq!(new.occupied, pos.occupied & !(bit(56) | bit(60)) | bit(58) | bit(59));
-        assert_eq!(new.w, pos.w);
-        assert_eq!(new.b.king, bit(58));
-        assert_eq!(new.b.rooks, bit(59) | bit(63));
+        assert_eq!(pos.b.all, pos.b.all & !(bit(56) | bit(60)) | bit(58) | bit(59));
+        assert_eq!(pos.occupied, pos.occupied & !(bit(56) | bit(60)) | bit(58) | bit(59));
+        assert_eq!(pos.w, pos.w);
+        assert_eq!(pos.b.king, bit(58));
+        assert_eq!(pos.b.rooks, bit(59) | bit(63));
         Ok(())
     }
 
@@ -455,109 +542,116 @@ mod tests {
 
     #[test]
     fn zobrist_hash_piece_movement() -> Result<(), FenParseError> {
-        let pos = Position::start();
+        let mut pos = Position::start();
         let mut clock = 0;
-        let new = make_move(&pos, &Move::pawn(board::E2, board::E3, false, None, false), &mut clock);
+        make_move(&mut pos, &Move::pawn(board::E2, board::E3, false, None, false), &mut clock);
         let (after, _) = Position::from_fen("rnbqkbnr/pppppppp/8/8/8/4P3/PPPP1PPP/RNBQKBNR b KQkq - 0 1")?;
-        assert_eq!(new.zobrist_hash, after.zobrist_hash);
+        assert_eq!(pos.zobrist_hash, after.zobrist_hash);
         Ok(())
     }
 
     #[test]
     fn zobrist_hash_piece_movement_en_passant() -> Result<(), FenParseError> {
-        let pos = Position::start();
+        let mut pos = Position::start();
         let mut clock = 0;
-        let new = make_move(&pos, &Move::pawn(board::E2, board::E4, false, None, false), &mut clock);
+        make_move(&mut pos, &Move::pawn(board::E2, board::E4, false, None, false), &mut clock);
         let (after, _) = Position::from_fen("rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1")?;
-        assert_eq!(new.zobrist_hash, after.zobrist_hash);
+        assert_eq!(pos.zobrist_hash, after.zobrist_hash);
         Ok(())
     }
 
     #[test]
     fn zobrist_hash_piece_movement_en_passant_update() -> Result<(), FenParseError> {
-        let pos = Position::start();
+        let mut pos = Position::start();
         let mut clock = 0;
-        let e4 = make_move(&pos, &Move::pawn(board::E2, board::E4, false, None, false), &mut clock);
-        let d5 = make_move(&e4,  &Move::pawn(board::D7, board::D5, false, None, false), &mut clock);
 
-        let x = e4.zobrist_hash ^ ZOBRIST_PIECE[Piece::Pawn.index()][Player::White.index()][board::E4 as usize]
-                                ^ ZOBRIST_PIECE[Piece::Pawn.index()][Player::Black.index()][board::D7 as usize]
-                                ^ ZOBRIST_EN_PASSANT_FILE[4];
-        let y = d5.zobrist_hash ^ ZOBRIST_PIECE[Piece::Pawn.index()][Player::White.index()][board::E4 as usize]
-                                ^ ZOBRIST_PIECE[Piece::Pawn.index()][Player::Black.index()][board::D5 as usize]
-                                ^ ZOBRIST_SIDE_BLACK
-                                ^ ZOBRIST_EN_PASSANT_FILE[3];
+        let e4 = Move::pawn(board::E2, board::E4, false, None, false);
+        let d5 = Move::pawn(board::D7, board::D5, false, None, false);
+
+        make_move(&mut pos, &e4, &mut clock);
+        let after_e4 = pos;
+
+        make_move(&mut pos, &d5, &mut clock);
+        let after_d5 = pos;
+
+        let x = after_e4.zobrist_hash ^ ZOBRIST_PIECE[Piece::Pawn.index()][Player::White.index()][board::E4 as usize]
+                                      ^ ZOBRIST_PIECE[Piece::Pawn.index()][Player::Black.index()][board::D7 as usize]
+                                      ^ ZOBRIST_EN_PASSANT_FILE[4];
+        let y = after_d5.zobrist_hash ^ ZOBRIST_PIECE[Piece::Pawn.index()][Player::White.index()][board::E4 as usize]
+                                      ^ ZOBRIST_PIECE[Piece::Pawn.index()][Player::Black.index()][board::D5 as usize]
+                                      ^ ZOBRIST_SIDE_BLACK
+                                      ^ ZOBRIST_EN_PASSANT_FILE[3];
         assert_eq!(x, y);
         Ok(())
     }
 
     #[test]
     fn zobrist_hash_piece_capture() -> Result<(), FenParseError> {
-        let (pos, _) = Position::from_fen("8/1k6/4r3/1K1P4/8/8/8/8 w - - 0 1")?;
+        let (mut pos, _) = Position::from_fen("8/1k6/4r3/1K1P4/8/8/8/8 w - - 0 1")?;
         let mut clock = 0;
-        let new = make_move(&pos, &Move::pawn(board::D5, board::E6, true, None, false), &mut clock);
+        make_move(&mut pos, &Move::pawn(board::D5, board::E6, true, None, false), &mut clock);
         let (after, _) = Position::from_fen("8/1k6/4P3/1K6/8/8/8/8 b - - 0 1")?;
-        assert_eq!(new.zobrist_hash, after.zobrist_hash);
+        assert_eq!(pos.zobrist_hash, after.zobrist_hash);
         Ok(())
     }
 
     #[test]
     fn zobrist_hash_piece_capture_en_passant() -> Result<(), FenParseError> {
-        let (pos, _) = Position::from_fen("8/6k1/1p6/2pP4/8/8/2P3K1/8 w - c6 0 1")?;
+        let (mut pos, _) = Position::from_fen("8/6k1/1p6/2pP4/8/8/2P3K1/8 w - c6 0 1")?;
         let mut clock = 0;
-        let new = make_move(&pos, &Move::pawn(board::D5, board::C6, true, None, true), &mut clock);
+        make_move(&mut pos, &Move::pawn(board::D5, board::C6, true, None, true), &mut clock);
         let (after, _) = Position::from_fen("8/6k1/1pP5/8/8/8/2P3K1/8 b - - 0 1")?;
-        assert_eq!(new.zobrist_hash, after.zobrist_hash);
+        assert_eq!(pos.zobrist_hash, after.zobrist_hash);
         Ok(())
     }
 
     #[test]
     fn zobrist_hash_pawn_promotion() -> Result<(), FenParseError> {
-        let (pos, _) = Position::from_fen("8/2P5/8/8/8/1r6/4k1K1/8 w - - 0 1")?;
+        let (mut pos, _) = Position::from_fen("8/2P5/8/8/8/1r6/4k1K1/8 w - - 0 1")?;
         let mut clock = 0;
-        let new = make_move(&pos, &Move::pawn(board::C7, board::C8, false, Some(Piece::Queen), false), &mut clock);
+        make_move(&mut pos, &Move::pawn(board::C7, board::C8, false, Some(Piece::Queen), false), &mut clock);
         let (after, _) = Position::from_fen("2Q5/8/8/8/8/1r6/4k1K1/8 b - - 0 1")?;
-        assert_eq!(new.zobrist_hash, after.zobrist_hash);
+        assert_eq!(pos.zobrist_hash, after.zobrist_hash);
         Ok(())
     }
 
     #[test]
     fn zobrist_hash_castling() -> Result<(), FenParseError> {
-        let (pos, _) = Position::from_fen("r1b1kbnr/pppp1ppp/2n2q2/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 4 4")?;
+        let (mut pos, _) = Position::from_fen("r1b1kbnr/pppp1ppp/2n2q2/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 4 4")?;
         let mut clock = 0;
-        let new = make_move(&pos, &Move::castling(Player::White, CastlingSide::KingSide), &mut clock);
+        make_move(&mut pos, &Move::castling(Player::White, CastlingSide::KingSide), &mut clock);
         let (after, _) = Position::from_fen("r1b1kbnr/pppp1ppp/2n2q2/4p3/2B1P3/5N2/PPPP1PPP/RNBQ1RK1 b kq - 5 4")?;
-        assert_eq!(new.zobrist_hash, after.zobrist_hash);
+        assert_eq!(pos.zobrist_hash, after.zobrist_hash);
         Ok(())
     }
 
     #[test]
     fn zobrist_hash_castling_revoked_rook_move() -> Result<(), FenParseError> {
-        let (pos, _) = Position::from_fen("r1b1kbnr/pppp1ppp/2n2q2/4p3/2B1P3/2N2N2/PPPP1PPP/R1BQK2R b KQkq - 0 1")?;
+        let (mut pos, _) = Position::from_fen("r1b1kbnr/pppp1ppp/2n2q2/4p3/2B1P3/2N2N2/PPPP1PPP/R1BQK2R b KQkq - 0 1")?;
         let mut clock = 0;
-        let new = make_move(&pos, &Move::new(board::A8, board::B8, Piece::Rook, false), &mut clock);
+        make_move(&mut pos, &Move::new(board::A8, board::B8, Piece::Rook, false), &mut clock);
         let (after, _) = Position::from_fen("1rb1kbnr/pppp1ppp/2n2q2/4p3/2B1P3/2N2N2/PPPP1PPP/R1BQK2R w KQk - 1 2")?;
-        assert_eq!(new.zobrist_hash, after.zobrist_hash);
+        assert_eq!(pos.zobrist_hash, after.zobrist_hash);
         Ok(())
     }
 
     #[test]
     fn zobrist_hash_castling_revoked_king_move() -> Result<(), FenParseError> {
-        let (pos, _) = Position::from_fen("r1b1kbnr/pppp1ppp/2n2q2/4p3/2B1P3/2N2N2/PPPP1PPP/R1BQK2R b KQkq - 0 1")?;
+        let (mut pos, _) = Position::from_fen("r1b1kbnr/pppp1ppp/2n2q2/4p3/2B1P3/2N2N2/PPPP1PPP/R1BQK2R b KQkq - 0 1")?;
         let mut clock = 0;
-        let new = make_move(&pos, &Move::new(board::E8, board::E7, Piece::King, false), &mut clock);
+        make_move(&mut pos, &Move::new(board::E8, board::E7, Piece::King, false), &mut clock);
         let (after, _) = Position::from_fen("r1b2bnr/ppppkppp/2n2q2/4p3/2B1P3/2N2N2/PPPP1PPP/R1BQK2R w KQ - 1 2")?;
-        assert_eq!(new.zobrist_hash, after.zobrist_hash);
+        assert_eq!(pos.zobrist_hash, after.zobrist_hash);
         Ok(())
     }
 
     #[test]
     fn zobrist_hash_castling_revoked_rook_capture() -> Result<(), FenParseError> {
-        let (pos, _) = Position::from_fen("r1b1kbnr/ppp2ppp/1Nn2q2/4p3/2BpP3/5N2/PPPP1PPP/R1BQK2R w KQkq - 0 4")?;
+        let (mut pos, _) = Position::from_fen("r1b1kbnr/ppp2ppp/1Nn2q2/4p3/2BpP3/5N2/PPPP1PPP/R1BQK2R w KQkq - 0 4")?;
         let mut clock = 0;
-        let new = make_move(&pos, &Move::new(board::B6, board::A8, Piece::Knight, true), &mut clock);
+        make_move(&mut pos, &Move::new(board::B6, board::A8, Piece::Knight, true), &mut clock);
         let (after, _) = Position::from_fen("N1b1kbnr/ppp2ppp/2n2q2/4p3/2BpP3/5N2/PPPP1PPP/R1BQK2R b KQk - 0 4")?;
-        assert_eq!(new.zobrist_hash, after.zobrist_hash);
+        assert_eq!(pos.zobrist_hash, after.zobrist_hash);
         Ok(())
     }
 
@@ -595,5 +689,97 @@ mod tests {
     fn test_sufficient_material_pawn() {
         let (pos, _) = Position::from_fen("8/8/3k4/8/8/4P3/1K6/8 w - - 0 1").unwrap();
         assert_eq!(is_insufficient_material(&pos), false);
+    }
+
+    #[test]
+    fn unmake_move_normal_move() {
+        let (mut pos, mut clock) = Position::from_fen("8/3r4/2k5/8/5R2/2K5/8/8 w - - 0 1").unwrap();
+        let save = pos;
+        let m = Move::new(board::F4, board::F8, Piece::Rook, false);
+        let undo = make_move(&mut pos, &m, &mut clock);
+        unmake_move(&mut pos, undo, &mut clock);
+        assert_eq!(pos, save);
+    }
+
+    #[test]
+    fn unmake_move_capture() {
+        let (mut pos, mut clock) = Position::from_fen("2b5/5k2/8/4n3/8/6B1/1K6/8 w - - 0 1").unwrap();
+        let save = pos;
+        let m = Move::new(board::G3, board::E5, Piece::Bishop, true);
+        let undo = make_move(&mut pos, &m, &mut clock);
+        unmake_move(&mut pos, undo, &mut clock);
+        assert_eq!(pos, save);
+    }
+
+    #[test]
+    fn unmake_move_promotion() {
+        let (mut pos, mut clock) = Position::from_fen("8/2P5/5k2/1K6/8/8/8/8 w - - 0 1").unwrap();
+        let save = pos;
+        let m = Move::pawn(board::C7, board::C8, false, Some(Piece::Queen), false);
+        let undo = make_move(&mut pos, &m, &mut clock);
+        unmake_move(&mut pos, undo, &mut clock);
+        assert_eq!(pos, save);
+    }
+
+    #[test]
+    fn unmake_move_en_passant() {
+        let (mut pos, mut clock) = Position::from_fen("8/8/5k2/1KPp4/8/8/8/8 w - d6 0 1").unwrap();
+        let save = pos;
+        let m = Move::pawn(board::C5, board::D6, true, None, true);
+        let undo = make_move(&mut pos, &m, &mut clock);
+        unmake_move(&mut pos, undo, &mut clock);
+        assert_eq!(pos, save);
+    }
+
+    #[test]
+    fn unmake_move_castling() {
+        let (mut pos, mut clock) = Position::from_fen("5b2/1q1pp2p/5k2/8/6Q1/8/P4PPP/2B1K2R w K - 0 1").unwrap();
+        let save = pos;
+        let m = Move::castling(Player::White, CastlingSide::KingSide);
+        let undo = make_move(&mut pos, &m, &mut clock);
+        unmake_move(&mut pos, undo, &mut clock);
+        assert_eq!(pos, save);
+    }
+
+    #[test]
+    fn unmake_move_castling_rights_rook_move() {
+        let (mut pos, mut clock) = Position::from_fen("5b2/1q1pp2p/5k2/8/6Q1/8/P4PPP/2B1K2R w K - 0 1").unwrap();
+        let save = pos;
+        let m = Move::new(board::H1, board::F1, Piece::Rook, false);
+        let undo = make_move(&mut pos, &m, &mut clock);
+        unmake_move(&mut pos, undo, &mut clock);
+        assert_eq!(pos, save);
+    }
+
+    #[test]
+    fn unmake_move_castling_rights_king_move() {
+        let (mut pos, mut clock) = Position::from_fen("5b2/1q1pp2p/5k2/8/6Q1/8/P4PPP/2B1K2R w K - 0 1").unwrap();
+        let save = pos;
+        let m = Move::new(board::E1, board::D2, Piece::King, false);
+        let undo = make_move(&mut pos, &m, &mut clock);
+        unmake_move(&mut pos, undo, &mut clock);
+        assert_eq!(pos, save);
+    }
+
+    #[test]
+    fn unmake_move_castling_rights_rook_capture() {
+        let (mut pos, mut clock) = Position::from_fen("5b2/1q1pp2p/5k2/8/6Q1/6n1/P4PPP/2B1K2R b K - 0 1").unwrap();
+        let save = pos;
+        let m = Move::new(board::G3, board::H1, Piece::Knight, true);
+        let undo = make_move(&mut pos, &m, &mut clock);
+        unmake_move(&mut pos, undo, &mut clock);
+        assert_eq!(pos, save);
+    }
+
+    #[test]
+    fn unmake_move_castling_rights_clock() {
+        let (mut pos, mut clock) = Position::from_fen("8/8/1k1p4/2p5/6P1/7P/5K2/8 b - - 39 100").unwrap();
+        let save = pos;
+        let save_clock = clock;
+        let m = Move::new(board::B6, board::B5, Piece::King, false);
+        let undo = make_move(&mut pos, &m, &mut clock);
+        unmake_move(&mut pos, undo, &mut clock);
+        assert_eq!(pos, save);
+        assert_eq!(clock, save_clock);
     }
 }

@@ -131,7 +131,7 @@ fn parse_go_params(tokens: &[&str]) -> GoParams {
 }
 
 fn compute_movetime(game: &mut Game, wtime: usize, btime: usize, winc: usize, binc: usize) -> usize {
-    let (time, inc) = if game.position().player_to_move == Player::White {
+    let (time, inc) = if game.position.player_to_move == Player::White {
         (wtime, winc)
     } else {
         (btime, binc)

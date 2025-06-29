@@ -8,7 +8,7 @@ use crate::core::{
 };
 
 /// Uses [Little-Endian Rank-File Mapping](https://www.chessprogramming.org/Square_Mapping_Considerations#Little-Endian_Rank-File_Mapping)
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub struct Position {
     pub w: BitboardSet,
     pub b: BitboardSet,

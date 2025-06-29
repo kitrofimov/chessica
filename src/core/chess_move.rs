@@ -1,7 +1,7 @@
 use crate::{constants::board, core::{piece::Piece, player::Player}, utility::square_idx_to_string};
 
 // TODO: will tightly-packing this improve performance?
-#[derive(Debug, PartialEq, Eq, Hash)]
+#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
 pub struct Move {
     pub from: u8,
     pub to: u8,
@@ -91,7 +91,7 @@ pub enum CastlingSide {
 }
 
 
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub struct CastlingRights {
     pub white_kingside: bool,
     pub white_queenside: bool,
