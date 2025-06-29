@@ -17,7 +17,6 @@ pub fn pseudo_moves(pos: &Position) -> Vec<Move> {
     pseudo_moves_for_piece(&pos, Piece::Queen, &mut moves);
     pseudo_moves_for_piece(&pos, Piece::King, &mut moves);
     pseudo_castling_moves(&pos, &mut moves);
-    // TODO: move ordering?
     moves
 }
 

@@ -57,6 +57,7 @@ Hobby-level, bitboard-representation chess engine
 - [ ] Transposition table
 - [ ] Move ordering
 - [ ] Better evaluation function
+- [ ] Better time control (adaptive `moves_remaining` in `uci::compute_movetime`)
 - [ ] Opening book
 - [ ] Endgame database
 

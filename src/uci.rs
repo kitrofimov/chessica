@@ -137,9 +137,9 @@ fn compute_movetime(game: &mut Game, wtime: usize, btime: usize, winc: usize, bi
         (btime, binc)
     };
 
-    let moves_remaining = 30;  // TODO: make this adaptive!
+    let moves_remaining = 30;
     let base_time = time / moves_remaining;
-    let inc_bonus = inc * 8 / 10;  // 80% of the increment
+    let inc_bonus = inc * 8 / 10;  // use 80% of the increment
 
     base_time + inc_bonus
 }
