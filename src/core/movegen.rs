@@ -70,7 +70,6 @@ fn add_pawn_moves(moves: &mut Vec<Move>, to_mask: u64, offset: i8, capture: bool
     while bb != 0 {
         let to = pop_lsb(&mut bb);
         let from = (to as i8 - offset) as u8;
-        // TODO: if inside a loop? too slow?
         if promotion {
             for promo in [Piece::Queen, Piece::Rook, Piece::Bishop, Piece::Knight] {
                 moves.push(Move::pawn(from, to, capture, Some(promo), en_passant));
