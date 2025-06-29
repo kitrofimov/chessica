@@ -1,6 +1,5 @@
 use std::{
     cmp::{max, min},
-    collections::HashMap,
     sync::{atomic::{AtomicBool, Ordering}, Arc},
     time::{Duration, Instant}
 };
@@ -11,51 +10,37 @@ use crate::core::{
     player::Player,
     position::*,
     rules::{is_insufficient_material, is_king_in_check, make_move},
-    zobrist::ZobristHash,
 };
 
 #[derive(Clone)]
 pub struct Game {
     positions: Vec<Position>,
     halfmove_clock: Vec<usize>,
-    repetition_table: HashMap<ZobristHash, u32>,
 }
 
 impl Default for Game {
     fn default() -> Self {
         let pos = Position::default();
-        let mut map = HashMap::new();
-        map.insert(pos.zobrist_hash, 1);
-
         Game {
             positions: vec![pos],
             halfmove_clock: vec![0],
-            repetition_table: map,
         }
     }
 }
 
 impl Game {
     pub fn new(pos: Position) -> Game {
-        let mut map = HashMap::new();
-        map.insert(pos.zobrist_hash, 1);
-
         Game {
             positions: vec![pos],
             halfmove_clock: vec![0],
-            repetition_table: map,
         }
     }
 
     pub fn from_fen(fen: &str) -> Result<Game, FenParseError> {
         let (pos, clock) = Position::from_fen(fen)?;
-        let mut map = HashMap::new();
-        map.insert(pos.zobrist_hash, 1);
-
         Ok(Game {
             positions: vec![pos],
             halfmove_clock: vec![clock],
-            repetition_table: map,
         })
     }
 
@@ -84,16 +69,11 @@ impl Game {
 
         self.positions.push(new);
         self.halfmove_clock.push(clock);
-        *self.repetition_table.entry(new.zobrist_hash).or_insert(0) += 1;
 
         true
     }
 
     pub fn unmake_move(&mut self) {
-        // Unwrapping safely because this entry should already be created by `make_move`
-        let hash = self.position().zobrist_hash;
-        *self.repetition_table.get_mut(&hash).unwrap() -= 1;
-
         self.positions.pop();
         self.halfmove_clock.pop();
     }
@@ -113,7 +93,17 @@ impl Game {
     }
 
     fn is_threefold_repetition(&self) -> bool {
-        self.repetition_table[&self.position().zobrist_hash] == 3
+        let current_hash = self.position().zobrist_hash;
+        let mut count = 1;
+        for &pos in self.positions.iter().rev() {
+            if pos.zobrist_hash == current_hash {
+                count += 1;
+                if count == 3 {
+                    return true;
+                }
+            }
+        }
+        false
     }
 
     fn is_fifty_move_rule(&self) -> bool {
@@ -278,7 +268,7 @@ mod tests {
             game.try_to_make_move(&m4);
         }
 
-        assert_eq!(*game.repetition_table.get(&game.position().zobrist_hash).unwrap(), 3);
+        assert_eq!(game.is_threefold_repetition(), true);
         Ok(())
     }
 
