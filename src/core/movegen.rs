@@ -3,7 +3,7 @@ use crate::{core::{
     piece::Piece,
     player::Player,
     position::*,
-    rules::is_square_attacked,
+    rules::checks::is_square_attacked,
 }};
 use crate::utility::*;
 use crate::constants::{board::*, attacks::*, magics::*, masks::*, *};

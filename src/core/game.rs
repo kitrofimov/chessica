@@ -3,15 +3,20 @@ use std::{
     sync::{atomic::{AtomicBool, Ordering}, Arc},
     time::{Duration, Instant}
 };
+use crate::constants::*;
 use crate::core::{
     chess_move::*,
     evaluate::evaluate,
     movegen::pseudo_moves,
     player::Player,
     position::*,
-    rules::{is_insufficient_material, is_king_in_check, make_move, unmake_move, UndoData},
+    rules::{
+        make::*,
+        unmake::*,
+        draw::*,
+        checks::*
+    }
 };
-use crate::constants::*;
 
 #[derive(Clone)]
 pub struct Game {
