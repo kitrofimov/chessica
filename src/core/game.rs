@@ -129,10 +129,17 @@ impl Game {
         }
 
         // Unwind the search if `stop_flag` was set or time is over
-        if stop_flag.load(Ordering::Relaxed)
-            || time_limit.map(|tl| start_time.elapsed() >= tl).unwrap_or(false) {
-            // TODO: is it correct to evaluate the position here?
-            return (evaluate(&self.position), true);
+        // Check every 1024 nodes, because it is time-expensive
+        if *nodes % 1024 == 0 {
+            if stop_flag.load(Ordering::Relaxed) {
+                return (evaluate(&self.position), true);
+            }
+
+            if let Some(tl) = time_limit {
+                if start_time.elapsed() >= tl {
+                    return (evaluate(&self.position), true);
+                }
+            }
         }
 
         if depth == 0 {
