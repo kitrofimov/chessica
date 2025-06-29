@@ -1,5 +1,5 @@
 use crate::constants::{attacks, board, zobrist::*};
-use crate::utility::{is_square_color_white, lsb, pop_lsb, square_idx_to_coordinates};
+use crate::utility::{is_square_color_white, lsb, square_idx_to_coordinates};
 use crate::core::{
     position::*,
     bitboard::*,
@@ -218,12 +218,11 @@ pub fn is_square_attacked(pos: &Position, sq: usize, by_player: Player) -> bool 
 }
 
 pub fn is_king_in_check(pos: &Position, player: Player) -> bool {
-    let mut king_bb = match player {
+    let king_bb = match player {
         Player::White => pos.w.king,
         Player::Black => pos.b.king,
     };
-    let sq = pop_lsb(&mut king_bb) as usize;
-    is_square_attacked(pos, sq, player.opposite())
+    is_square_attacked(pos, lsb(king_bb).into(), player.opposite())
 }
 
 pub fn is_insufficient_material(pos: &Position) -> bool {
