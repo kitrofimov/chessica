@@ -50,7 +50,11 @@ Hobby-level, bitboard-representation chess engine
     - [ ] Come up with a cool name and rename the project
 
 ## Roadmap
+- [x] Move generation
+- [x] Alpha-beta pruned minimax search
+- [x] Zobrist hashing
 - [ ] Transposition table
+- [ ] Move ordering
 - [ ] Better evaluation function
 - [ ] Opening book
 - [ ] Endgame database
