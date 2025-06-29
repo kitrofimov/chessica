@@ -3,88 +3,73 @@ use std::{
     sync::{atomic::{AtomicBool, Ordering}, Arc},
     time::{Duration, Instant}
 };
+use crate::constants::*;
 use crate::core::{
     chess_move::*,
     evaluate::evaluate,
     movegen::pseudo_moves,
     player::Player,
     position::*,
-    rules::{is_insufficient_material, is_king_in_check, make_move},
+    rules::{
+        make::*,
+        unmake::*,
+        draw::*,
+        checks::*
+    }
 };
-use crate::constants::*;
 
 #[derive(Clone)]
 pub struct Game {
-    positions: Vec<Position>,
-    halfmove_clock: Vec<usize>,
+    pub position: Position,
+    pub undos: Vec<UndoData>,
+    pub halfmove_clock: usize,
 }
 
 impl Default for Game {
     fn default() -> Self {
-        let mut positions      = Vec::with_capacity(GAME_HISTORY_CAPACITY);
-        let mut halfmove_clock = Vec::with_capacity(GAME_HISTORY_CAPACITY);
-
-        positions.push(Position::default());
-        halfmove_clock.push(0);
-
-        Game { positions, halfmove_clock }
+        let undos = Vec::with_capacity(GAME_HISTORY_CAPACITY);
+        let position = Position::default();
+        Game { position, undos, halfmove_clock: 0 }
     }
 }
 
 impl Game {
     pub fn new(pos: Position) -> Game {
-        let mut positions      = Vec::with_capacity(GAME_HISTORY_CAPACITY);
-        let mut halfmove_clock = Vec::with_capacity(GAME_HISTORY_CAPACITY);
-
-        positions.push(pos);
-        halfmove_clock.push(0);
-
-        Game { positions, halfmove_clock }
+        let undos = Vec::with_capacity(GAME_HISTORY_CAPACITY);
+        Game { position: pos, undos, halfmove_clock: 0 }
     }
 
     pub fn from_fen(fen: &str) -> Result<Game, FenParseError> {
-        let mut positions      = Vec::with_capacity(GAME_HISTORY_CAPACITY);
-        let mut halfmove_clock = Vec::with_capacity(GAME_HISTORY_CAPACITY);
-
-        let (pos, clock) = Position::from_fen(fen)?;
-        positions.push(pos);
-        halfmove_clock.push(clock);
-
-        Ok(Game { positions, halfmove_clock })
-    }
-
-    pub fn position(&self) -> &Position {
-        self.positions.last().unwrap()
-    }
-
-    pub fn halfmove_clock(&self) -> &usize {
-        self.halfmove_clock.last().unwrap()
+        let (position, clock) = Position::from_fen(fen)?;
+        let undos = Vec::with_capacity(GAME_HISTORY_CAPACITY);
+        Ok(Game { position, undos, halfmove_clock: clock })
     }
 
     pub fn pseudo_moves(&self) -> Vec<Move> {
-        pseudo_moves(self.position())
+        pseudo_moves(&self.position)
     }
 
     pub fn try_to_make_move(&mut self, m: &Move) -> bool {
-        let pos = self.position();
-        let mut clock = *self.halfmove_clock.last().unwrap();
-        let new = make_move(pos, m, &mut clock);
+        let mut clock = self.halfmove_clock;
+        let undo = make_move(&mut self.position, m, &mut clock);
 
         // Check legality of a move (is player that made the move still in check?)
-        // Using `pos.player_to_move` because the flag was already flipped in `new`
-        if is_king_in_check(&new, pos.player_to_move) {
+        // Using `.opposite()` because the flag was already flipped in `make_move`
+        if is_king_in_check(&self.position, self.position.player_to_move.opposite()) {
+            unmake_move(&mut self.position, undo, &mut clock);
             return false;
         }
 
-        self.positions.push(new);
-        self.halfmove_clock.push(clock);
+        self.undos.push(undo);
+        self.halfmove_clock = clock;
 
         true
     }
 
     pub fn unmake_move(&mut self) {
-        self.positions.pop();
-        self.halfmove_clock.pop();
+        let mut clock = self.halfmove_clock;
+        unmake_move(&mut self.position, self.undos.pop().unwrap(), &mut clock);
+        self.halfmove_clock = clock;
     }
 
     // UTTERLY INSANE IMPLEMENTATION that works
@@ -102,10 +87,10 @@ impl Game {
     }
 
     fn is_threefold_repetition(&self) -> bool {
-        let current_hash = self.position().zobrist_hash;
+        let current_hash = self.position.zobrist_hash;
         let mut count = 1;
-        for &pos in self.positions.iter().rev() {
-            if pos.zobrist_hash == current_hash {
+        for undo in self.undos.iter().rev() {
+            if undo.zobrist_hash == current_hash {
                 count += 1;
                 if count == 3 {
                     return true;
@@ -116,11 +101,11 @@ impl Game {
     }
 
     fn is_fifty_move_rule(&self) -> bool {
-        *self.halfmove_clock() >= 100
+        self.halfmove_clock >= 100
     }
 
     fn is_insufficient_material(&self) -> bool {
-        is_insufficient_material(self.position())
+        is_insufficient_material(&self.position)
     }
 
     // Returns (eval, unwind)
@@ -147,11 +132,11 @@ impl Game {
         if stop_flag.load(Ordering::Relaxed)
             || time_limit.map(|tl| start_time.elapsed() >= tl).unwrap_or(false) {
             // TODO: is it correct to evaluate the position here?
-            return (evaluate(self.position()), true);
+            return (evaluate(&self.position), true);
         }
 
         if depth == 0 {
-            return (evaluate(self.position()), false);
+            return (evaluate(&self.position), false);
         }
 
         let moves = self.pseudo_moves();
@@ -194,13 +179,14 @@ impl Game {
         }
 
         if !found_legal_move {
-            if is_king_in_check(self.position(), self.position().player_to_move) {
-                return (match self.position().player_to_move {  // losing sooner is worse
+            // Checkmate
+            if is_king_in_check(&self.position, self.position.player_to_move) {
+                return (match self.position.player_to_move {  // losing sooner is worse
                     Player::White => -10_000 + depth as i32,
                     Player::Black =>  10_000 - depth as i32,
                 }, false);
-            } else {
-                return (0, false);  // stalemate
+            } else {  // Draw
+                return (0, false);
             }
         }
 
@@ -216,7 +202,7 @@ impl Game {
         time_limit: Option<Duration>
     ) -> (Option<Move>, i32, u64, bool) {
         let mut best_move = None;
-        let (mut best_score, maximize) = match self.position().player_to_move {
+        let (mut best_score, maximize) = match self.position.player_to_move {
             Player::White => (i32::MIN, true),
             Player::Black => (i32::MAX, false),
         };
@@ -286,7 +272,7 @@ mod tests {
         let mut game = Game::from_fen("8/3k4/1n6/8/8/5N2/3K4/8 w - - 99 1")?;
         let m = Move::new(board::F3, board::G5, Piece::Knight, false);
         game.try_to_make_move(&m);
-        assert_eq!(*game.halfmove_clock(), 100);
+        assert_eq!(game.halfmove_clock, 100);
         Ok(())
     }
 }

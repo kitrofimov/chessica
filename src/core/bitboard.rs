@@ -67,6 +67,12 @@ impl BitboardSet {
         self.king    = self.king.unset_bit(n);
     }
 
+    pub fn set_bit(&mut self, n: u8, piece: Piece) {
+        self.all     = self.all.set_bit(n);
+        let bb = self.piece_to_bb_mut(piece);
+        *bb = bb.set_bit(n);
+    }
+
     pub fn count(&self, piece: Piece) -> u32 {
         self.piece_to_bb(piece).count_ones()
     }
