@@ -32,15 +32,15 @@ pub fn unmake_move(pos: &mut Position, undo: UndoData, halfmove_clock: &mut usiz
     if m.is_castling() {
         undo_castling(pos, &m, who_moved);
     } else {
-        if let Some(_) = m.promotion {
+        if let Some(_) = m.promotion() {
             undo_promotion(friendly, &m);
         } else {
             undo_non_promotion_move(friendly, &m);
         }
 
-        if m.en_passant {
+        if m.is_en_passant() {
             undo_en_passant(hostile, &m, who_moved);
-        } else if m.capture {
+        } else if m.is_capture() {
             undo_capture(hostile, &m, undo.captured_piece.unwrap());
         }
     }
@@ -51,7 +51,7 @@ pub fn unmake_move(pos: &mut Position, undo: UndoData, halfmove_clock: &mut usiz
 fn undo_castling(pos: &mut Position, m: &Move, who: Player) {
     let (friendly, _) = pos.perspective_mut(who);
 
-    let (rook_from, rook_to) = match (who, m.kingside_castling, m.queenside_castling) {
+    let (rook_from, rook_to) = match (who, m.is_kingside_castling(), m.is_queenside_castling()) {
         (Player::White, true, _) => (board::H1, board::F1),
         (Player::White, _, true) => (board::A1, board::D1),
         (Player::Black, true, _) => (board::H8, board::F8),
@@ -73,7 +73,7 @@ fn undo_promotion(friendly: &mut BitboardSet, m: &Move) {
 
 fn undo_non_promotion_move(friendly: &mut BitboardSet, m: &Move) {
     friendly.unset_bit(m.to);
-    friendly.set_bit(m.from, m.piece);
+    friendly.set_bit(m.from, m.piece());
 }
 
 fn undo_capture(hostile: &mut BitboardSet, m: &Move, captured: Piece) {

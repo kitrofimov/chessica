@@ -1,4 +1,5 @@
 #[derive(Debug, PartialEq, Eq, Hash, Copy, Clone)]
+#[repr(u8)]
 pub enum Piece {
     Pawn = 0,
     Knight,
@@ -46,5 +47,28 @@ impl Piece {
             Piece::Queen  => 4,
             Piece::King   => 5,
         }
+    }
+
+    pub fn encode(&self) -> u8 {
+        *self as u8
+    }
+
+    pub fn decode(x: u8) -> Option<Piece> {
+        if x == Piece::empty() {
+            return None;
+        }
+        match x {
+            0 => Some(Piece::Pawn),
+            1 => Some(Piece::Knight),
+            2 => Some(Piece::Bishop),
+            3 => Some(Piece::Rook),
+            4 => Some(Piece::Queen),
+            5 => Some(Piece::King),
+            _ => unreachable!(),
+        }
+    }
+
+    pub const fn empty() -> u8 {
+        0b111
     }
 }

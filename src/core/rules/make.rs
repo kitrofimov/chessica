@@ -28,7 +28,7 @@ pub fn make_move(pos: &mut Position, m: &Move, halfmove_clock: &mut usize) -> Un
     } else {
         update_castling_rights(&mut pos.castling, m, who_made_move);
 
-        if m.piece == Piece::Pawn || m.capture {
+        if m.piece() == Piece::Pawn || m.is_capture() {
             *halfmove_clock = 0;
         }
 
@@ -38,15 +38,15 @@ pub fn make_move(pos: &mut Position, m: &Move, halfmove_clock: &mut usize) -> Un
 
         let (friendly, hostile) = pos.perspective_mut(who_made_move);
 
-        if let Some(promotion_piece) = m.promotion {
+        if let Some(promotion_piece) = m.promotion() {
             handle_promotion(friendly, m, &mut hash, who_made_move, promotion_piece);
         } else {
             handle_non_promotion_move(friendly, m, &mut hash, who_made_move);
         }
 
-        if m.en_passant {
+        if m.is_en_passant() {
             handle_en_passant(hostile, m, &mut hash, who_made_move);
-        } else if m.capture {
+        } else if m.is_capture() {
             undo.captured_piece = hostile.what(m.to);
             handle_capture(hostile, m, &mut hash, &mut castling, who_made_move, undo.captured_piece.unwrap());
         }
@@ -66,7 +66,7 @@ fn update_en_passant_square(new: &mut Position, m: &Move) {
         en_passant_hash(&mut new.zobrist_hash, prev_ep_sq);
     }
 
-    new.en_passant_square = if m.double_push {
+    new.en_passant_square = if m.is_double_push() {
         let new_ep_sq = (m.from + m.to) / 2;
         en_passant_hash(&mut new.zobrist_hash, new_ep_sq);
         Some(new_ep_sq)
@@ -76,7 +76,7 @@ fn update_en_passant_square(new: &mut Position, m: &Move) {
 }
 
 fn handle_castling(new: &mut Position, m: &Move, who_made_move: Player) {
-    let (rook_from, rook_to) = match (who_made_move, m.kingside_castling, m.queenside_castling) {
+    let (rook_from, rook_to) = match (who_made_move, m.is_kingside_castling(), m.is_queenside_castling()) {
         (Player::White, true, _) => (board::H1, board::F1),
         (Player::White, _, true) => (board::A1, board::D1),
         (Player::Black, true, _) => (board::H8, board::F8),
@@ -104,8 +104,8 @@ fn toggle_piece_hash(hash: &mut u64, piece: Piece, player: Player, sq: u8) {
 }
 
 fn apply_move_hash(hash: &mut u64, m: &Move, player: Player) {
-    toggle_piece_hash(hash, m.piece, player, m.from);
-    toggle_piece_hash(hash, m.piece, player, m.to);
+    toggle_piece_hash(hash, m.piece(), player, m.from);
+    toggle_piece_hash(hash, m.piece(), player, m.to);
 }
 
 fn en_passant_hash(hash: &mut u64, ep_sq: u8) {
@@ -133,10 +133,10 @@ fn handle_non_promotion_move(
     hash: &mut u64,
     who_made_move: Player
 ) {
-    let bb = friendly.piece_to_bb_mut(m.piece);
+    let bb = friendly.piece_to_bb_mut(m.piece());
     *bb = bb.unset_bit(m.from).set_bit(m.to);
-    toggle_piece_hash(hash, m.piece, who_made_move, m.from);
-    toggle_piece_hash(hash, m.piece, who_made_move, m.to);
+    toggle_piece_hash(hash, m.piece(), who_made_move, m.from);
+    toggle_piece_hash(hash, m.piece(), who_made_move, m.to);
 }
 
 fn handle_en_passant(
@@ -175,7 +175,7 @@ fn handle_capture(
 }
 
 fn update_castling_rights(castling: &mut CastlingRights, m: &Move, who_made_move: Player) {
-    match m.piece {
+    match m.piece() {
         Piece::King => castling.reset(who_made_move),
         Piece::Rook if castling.any(who_made_move) => {
             match m.from {
