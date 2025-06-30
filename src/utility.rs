@@ -4,7 +4,7 @@ pub const fn bit(sq: u8) -> u64 {
 
 // List of squares to bitboard
 pub fn sq_to_bb(lst: &[u8]) -> u64 {
-    lst.iter().fold(0u64, |s, &a| s | bit(a.into()))
+    lst.iter().fold(0u64, |s, &a| s | bit(a))
 }
 
 pub fn lsb(bitboard: u64) -> u8 {
@@ -23,8 +23,8 @@ pub fn is_square_color_white(sq: u8) -> bool {
 }
 
 pub fn square_idx_to_string(sq: u8) -> String {
-    let file = (sq % 8) as u8;
-    let rank = (sq / 8) as u8;
+    let file = sq % 8;
+    let rank = sq / 8;
     format!("{}{}", (file + b'a') as char, rank + 1)
 }
 

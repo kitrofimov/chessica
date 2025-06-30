@@ -10,13 +10,13 @@ use crate::constants::{board::*, attacks::*, magics::*, masks::*, *};
 
 pub fn pseudo_moves(pos: &Position) -> Vec<Move> {
     let mut moves = Vec::with_capacity(MOVE_LIST_CAPACITY);
-    pseudo_pawn_moves(&pos, &mut moves);
-    pseudo_moves_for_piece(&pos, Piece::Knight, &mut moves);
-    pseudo_moves_for_piece(&pos, Piece::Bishop, &mut moves);
-    pseudo_moves_for_piece(&pos, Piece::Rook, &mut moves);
-    pseudo_moves_for_piece(&pos, Piece::Queen, &mut moves);
-    pseudo_moves_for_piece(&pos, Piece::King, &mut moves);
-    pseudo_castling_moves(&pos, &mut moves);
+    pseudo_pawn_moves(pos, &mut moves);
+    pseudo_moves_for_piece(pos, Piece::Knight, &mut moves);
+    pseudo_moves_for_piece(pos, Piece::Bishop, &mut moves);
+    pseudo_moves_for_piece(pos, Piece::Rook, &mut moves);
+    pseudo_moves_for_piece(pos, Piece::Queen, &mut moves);
+    pseudo_moves_for_piece(pos, Piece::King, &mut moves);
+    pseudo_castling_moves(pos, &mut moves);
     moves
 }
 
@@ -57,7 +57,7 @@ fn can_castle(pos: &Position, side: CastlingSide) -> bool {
     // Make sure the king doesn't pass through attacked squares
     while mask != 0 {
         let sq = pop_lsb(&mut mask);
-        if is_square_attacked(&pos, sq.into(), pos.player_to_move.opposite()) {
+        if is_square_attacked(pos, sq.into(), pos.player_to_move.opposite()) {
             return false;
         }
     };
@@ -84,7 +84,7 @@ fn add_pawn_moves(moves: &mut Vec<Move>, to_mask: u64, offset: i8, capture: bool
 
 fn pseudo_pawn_moves(pos: &Position, moves: &mut Vec<Move>) {
     let empty = !pos.occupied;
-    let en_passant_bb = pos.en_passant_square.map(|sq| bit(sq.into())).unwrap_or(0);
+    let en_passant_bb = pos.en_passant_square.map(bit).unwrap_or(0);
     let (pawns, enemy, left_offset, forward_offset, right_offset,
          start_rank, promo_rank, mask_right, mask_left) =
         match pos.player_to_move {
@@ -184,7 +184,7 @@ fn pseudo_moves_for_piece(pos: &Position, piece_type: Piece, moves: &mut Vec<Mov
         let mut attacks = attack_fn(pos, from, friendly);
         while attacks != 0 {
             let to = pop_lsb(&mut attacks);
-            let capture = (bit(to.into()) & hostile) > 0;
+            let capture = (bit(to) & hostile) > 0;
             moves.push(Move::new(from as u8, to, piece_type, capture));
         }
     }

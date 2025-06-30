@@ -34,10 +34,10 @@ pub fn perft(game: &mut Game, depth: usize, n_calls: usize, stop_flag: &Arc<Atom
 
         // If we're on the top, print detailed data for every depth-1 call
         if n_calls == 0 {
-            println!("{} {}", m.to_string(), branches);
+            println!("{} {}", m, branches);
         }
     }
-    return nodes;
+    nodes
 }
 
 

@@ -14,16 +14,15 @@ pub struct Move {
     pub queenside_castling: bool,
 }
 
-impl ToString for Move {
+impl std::fmt::Display for Move {
     // Long algebraic notation, UCI-compliant
-    fn to_string(&self) -> String {
-        let mut s = String::new();
-        s += &square_idx_to_string(self.from);
-        s += &square_idx_to_string(self.to);
-        if let Some(promotion_piece) = self.promotion {
-            s += &promotion_piece.to_char().to_string();
-        }
-        s
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let prom_char = if let Some(promotion_piece) = self.promotion {
+            promotion_piece.to_char().to_string()
+        } else {
+            "".to_string()
+        };
+        write!(f, "{}{}{}", square_idx_to_string(self.from), square_idx_to_string(self.to), prom_char)
     }
 }
 
@@ -110,9 +109,9 @@ impl Default for CastlingRights {
     }
 }
 
-impl ToString for CastlingRights {
+impl std::fmt::Display for CastlingRights {
     // FEN-like castling rights string
-    fn to_string(&self) -> String {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let mut s = String::new();
         if self.white_kingside {
             s += "K";
@@ -126,10 +125,13 @@ impl ToString for CastlingRights {
         if self.black_queenside {
             s += "q";
         }
-        if s == "" {
-            return "-".into();
+
+        if s.is_empty() {
+            write!(f, "-")?;
+        } else {
+            write!(f, "{}", s)?;
         }
-        s
+        Ok(())
     }
 }
 
@@ -158,10 +160,10 @@ impl CastlingRights {
     }
 
     pub fn encode(&self) -> u8 {
-        (self.white_kingside  as u8) << 0 |
-        (self.white_queenside as u8) << 1 |
-        (self.black_kingside  as u8) << 2 |
-        (self.black_queenside as u8) << 3
+         (self.white_kingside  as u8)       |
+        ((self.white_queenside as u8) << 1) |
+        ((self.black_kingside  as u8) << 2) |
+        ((self.black_queenside as u8) << 3)
     }
 
     pub fn reset(&mut self, player: Player) {

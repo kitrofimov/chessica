@@ -26,14 +26,14 @@ const fn generate_king_attack(square: u8) -> u64 {
     let no_1 = bb & !RANK[1];
     let no_8 = bb & !RANK[8];
 
-    (no_a >> 1)        | // right
-    (no_h << 1)        | // left
-    (no_1 >> 8)        | // down
-    (no_8 << 8)        | // up
-    (no_a & no_8) << 7 | // up-left
-    (no_h & no_8) << 9 | // up-right
-    (no_a & no_1) >> 9 | // down-left
-    (no_h & no_1) >> 7   // down-right
+     (no_a >> 1)         | // right
+     (no_h << 1)         | // left
+     (no_1 >> 8)         | // down
+     (no_8 << 8)         | // up
+    ((no_a & no_8) << 7) | // up-left
+    ((no_h & no_8) << 9) | // up-right
+    ((no_a & no_1) >> 9) | // down-left
+    ((no_h & no_1) >> 7)   // down-right
 }
 
 pub static PAWN_ATTACKS_WHITE: [u64; 64] = {

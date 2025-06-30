@@ -69,7 +69,7 @@ pub fn position(game: &mut Game, tokens: &[&str]) {
         for mv in &tokens[i + 1..] {
             let ok = game.try_to_make_uci_move(mv);
             if !ok {
-                println!("info string Failed to execute move {}!", mv.to_string());
+                println!("info string Failed to execute move {}!", mv);
             }
         }
     }
@@ -211,14 +211,14 @@ fn print_uci_info(depth: usize, eval: i32, nodes: u64, pv: Vec<Move>, elapsed: D
     );
 
     for m in pv.iter().rev() {
-        print!("{} ", m.to_string())
+        print!("{} ", m);
     }
     println!();
 }
 
 fn print_best_move(best_move: Option<Move>) {
     if let Some(m) = best_move {
-        println!("bestmove {}", m.to_string());
+        println!("bestmove {}", m);
     } else {
         println!("bestmove 0000");
     }

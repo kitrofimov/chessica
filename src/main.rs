@@ -13,7 +13,7 @@ fn main() {
 
     for line in stdin.lock().lines() {
         let line = line.unwrap();
-        let tokens: Vec<&str> = line.trim().split_whitespace().collect();
+        let tokens: Vec<&str> = line.split_whitespace().collect();
         if tokens.is_empty() {
             continue;
         }

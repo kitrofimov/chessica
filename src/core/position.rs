@@ -72,7 +72,7 @@ impl std::fmt::Display for Position {
             writeln!(f, "En passant square: {:?}", square_idx_to_string(ep_sq))?;
         }
         writeln!(f, "Player to move: {:?}", self.player_to_move)?;
-        write!(f, "Castling rights: {}", self.castling.to_string())?;
+        write!(f, "Castling rights: {}", self.castling)?;
         Ok(())
     }
 }
@@ -125,7 +125,7 @@ impl Position {
         for rank in ranks {
             let mut file_count = 0;
             for c in rank.chars() {
-                if c.is_digit(10) {
+                if c.is_ascii_digit() {
                     file_count += c.to_digit(10).unwrap();
                 } else if "pnbrqkPNBRQK".contains(c) {
                     file_count += 1;
@@ -188,7 +188,7 @@ impl Position {
                 file = 0;
                 continue;
             }
-            if c.is_digit(10) {
+            if c.is_ascii_digit() {
                 file += c.to_digit(10).unwrap() as usize;
                 continue;
             }

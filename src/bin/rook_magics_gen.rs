@@ -95,7 +95,7 @@ fn find_magic(square: usize, mask: u64, shift: u8) -> (u64, Vec<u64>) {
         let magic = random_magic_candidate();
 
         for (i, &blockers) in variations.iter().enumerate() {
-            let index = (((blockers.wrapping_mul(magic))) >> shift) as usize;
+            let index = (blockers.wrapping_mul(magic) >> shift) as usize;
             if table[index] != attacks[i] && table[index] != PLACEHOLDER {  // collision
                 table.fill(PLACEHOLDER);
                 continue 'outer;

@@ -32,7 +32,7 @@ pub fn unmake_move(pos: &mut Position, undo: UndoData, halfmove_clock: &mut usiz
     if m.is_castling() {
         undo_castling(pos, &m, who_moved);
     } else {
-        if let Some(_) = m.promotion {
+        if m.promotion.is_some() {
             undo_promotion(friendly, &m);
         } else {
             undo_non_promotion_move(friendly, &m);
