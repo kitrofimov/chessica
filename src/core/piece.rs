@@ -1,4 +1,5 @@
 #[derive(Debug, PartialEq, Eq, Hash, Copy, Clone)]
+#[repr(u8)]
 pub enum Piece {
     Pawn = 0,
     Knight,

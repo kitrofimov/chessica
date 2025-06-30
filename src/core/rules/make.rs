@@ -28,7 +28,7 @@ pub fn make_move(pos: &mut Position, m: &Move, halfmove_clock: &mut usize) -> Un
     } else {
         update_castling_rights(&mut pos.castling, m, who_made_move);
 
-        if m.piece == Piece::Pawn || m.capture {
+        if m.piece == Piece::Pawn || m.is_capture() {
             *halfmove_clock = 0;
         }
 
@@ -44,9 +44,9 @@ pub fn make_move(pos: &mut Position, m: &Move, halfmove_clock: &mut usize) -> Un
             handle_non_promotion_move(friendly, m, &mut hash, who_made_move);
         }
 
-        if m.en_passant {
+        if m.is_en_passant() {
             handle_en_passant(hostile, m, &mut hash, who_made_move);
-        } else if m.capture {
+        } else if m.is_capture() {
             undo.captured_piece = hostile.what(m.to);
             handle_capture(hostile, m, &mut hash, &mut castling, who_made_move, undo.captured_piece.unwrap());
         }
@@ -66,7 +66,7 @@ fn update_en_passant_square(new: &mut Position, m: &Move) {
         en_passant_hash(&mut new.zobrist_hash, prev_ep_sq);
     }
 
-    new.en_passant_square = if m.double_push {
+    new.en_passant_square = if m.is_double_push() {
         let new_ep_sq = (m.from + m.to) / 2;
         en_passant_hash(&mut new.zobrist_hash, new_ep_sq);
         Some(new_ep_sq)
@@ -76,7 +76,7 @@ fn update_en_passant_square(new: &mut Position, m: &Move) {
 }
 
 fn handle_castling(new: &mut Position, m: &Move, who_made_move: Player) {
-    let (rook_from, rook_to) = match (who_made_move, m.kingside_castling, m.queenside_castling) {
+    let (rook_from, rook_to) = match (who_made_move, m.is_kingside_castling(), m.is_queenside_castling()) {
         (Player::White, true, _) => (board::H1, board::F1),
         (Player::White, _, true) => (board::A1, board::D1),
         (Player::Black, true, _) => (board::H8, board::F8),

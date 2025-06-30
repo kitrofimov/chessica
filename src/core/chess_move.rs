@@ -1,17 +1,18 @@
 use crate::{constants::board, core::{piece::Piece, player::Player}, utility::square_idx_to_string};
 
-// TODO: will tightly-packing this improve performance?
+const FLAG_CAPTURE: u8 = 1 << 0;
+const FLAG_EN_PASSANT: u8 = 1 << 1;
+const FLAG_DOUBLE_PUSH: u8 = 1 << 2;
+const FLAG_KINGSIDE_CASTLING: u8 = 1 << 3;
+const FLAG_QUEENSIDE_CASTLING: u8 = 1 << 4;
+
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
 pub struct Move {
     pub from: u8,
     pub to: u8,
     pub piece: Piece,
-    pub capture: bool,
     pub promotion: Option<Piece>,
-    pub en_passant: bool,
-    pub double_push: bool,
-    pub kingside_castling: bool,
-    pub queenside_castling: bool,
+    pub flags: u8,
 }
 
 impl ToString for Move {
@@ -33,53 +34,67 @@ impl Move {
             from,
             to,
             piece,
-            capture,
             promotion: None,
-            en_passant: false,
-            double_push: false,
-            kingside_castling: false,
-            queenside_castling: false,
+            flags: if capture { FLAG_CAPTURE } else { 0 },
         }
     }
 
     pub fn pawn(from: u8, to: u8, capture: bool, promotion: Option<Piece>, en_passant: bool) -> Self {
+        let mut flags = 0;
+        if capture { flags |= FLAG_CAPTURE; }
+        if en_passant { flags |= FLAG_EN_PASSANT; }
+        if to.wrapping_sub(from) == 16 || from.wrapping_sub(to) == 16 {
+            flags |= FLAG_DOUBLE_PUSH;
+        }
+
         Move {
             from,
             to,
             piece: Piece::Pawn,
-            capture,
             promotion,
-            en_passant,
-            double_push: to.wrapping_sub(from) == 16 || from.wrapping_sub(to) == 16,
-            kingside_castling: false,
-            queenside_castling: false,
+            flags,
         }
     }
 
     pub fn castling(player: Player, side: CastlingSide) -> Self {
+        let (from, to, flags) = match (player, side) {
+            (Player::White, CastlingSide::KingSide)  => (board::E1, board::G1, FLAG_KINGSIDE_CASTLING),
+            (Player::White, CastlingSide::QueenSide) => (board::E1, board::C1, FLAG_QUEENSIDE_CASTLING),
+            (Player::Black, CastlingSide::KingSide)  => (board::E8, board::G8, FLAG_KINGSIDE_CASTLING),
+            (Player::Black, CastlingSide::QueenSide) => (board::E8, board::C8, FLAG_QUEENSIDE_CASTLING),
+        };
+
         Move {
-            from: match player {
-                Player::White => board::E1,
-                Player::Black => board::E8,
-            },
-            to: match (player, side) {
-                (Player::White, CastlingSide::KingSide)  => board::G1,
-                (Player::White, CastlingSide::QueenSide) => board::C1,
-                (Player::Black, CastlingSide::KingSide)  => board::G8,
-                (Player::Black, CastlingSide::QueenSide) => board::C8,
-            },
+            from,
+            to,
             piece: Piece::King,
-            capture: false,
             promotion: None,
-            en_passant: false,
-            double_push: false,
-            kingside_castling: side == CastlingSide::KingSide,
-            queenside_castling: side == CastlingSide::QueenSide,
+            flags,
         }
     }
 
+    pub fn is_capture(&self) -> bool {
+        self.flags & FLAG_CAPTURE != 0
+    }
+
+    pub fn is_en_passant(&self) -> bool {
+        self.flags & FLAG_EN_PASSANT != 0
+    }
+
+    pub fn is_double_push(&self) -> bool {
+        self.flags & FLAG_DOUBLE_PUSH != 0
+    }
+
+    pub fn is_kingside_castling(&self) -> bool {
+        self.flags & FLAG_KINGSIDE_CASTLING != 0
+    }
+
+    pub fn is_queenside_castling(&self) -> bool {
+        self.flags & FLAG_QUEENSIDE_CASTLING != 0
+    }
+
     pub fn is_castling(&self) -> bool {
-        self.kingside_castling | self.queenside_castling
+        self.flags & (FLAG_KINGSIDE_CASTLING | FLAG_QUEENSIDE_CASTLING) != 0
     }
 }
 
