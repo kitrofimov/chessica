@@ -151,8 +151,9 @@ pub fn go(
     search_thread: &mut Option<JoinHandle<()>>,
 ) {
     let params = parse_go_params(tokens);
+    stop_search(stop_flag, search_thread);
 
-    if let Some(perft_depth) = params.perft {
+    if let Some(perft_depth) = params.perft {  // non-UCI compliant
         go_perft(game, perft_depth, stop_flag, search_thread);
     } else if let Some(movetime) = params.movetime {
         go_movetime(game, Duration::from_millis(movetime.try_into().unwrap()), stop_flag, search_thread);
@@ -172,11 +173,6 @@ pub fn go(
 }
 
 fn go_perft(game: &mut Game, depth: usize, stop_flag: &mut Arc<AtomicBool>, search_thread: &mut Option<JoinHandle<()>>) {
-    // Stop current search (if there is some)
-    stop_search(stop_flag, search_thread);
-
-    // TODO: this cloning shouldn't be a huge performance penalty right?
-    // this is also the case for other `go_*` functions
     let mut game_clone = game.clone();
     let stop_flag_clone = Arc::clone(stop_flag);
 
@@ -245,6 +241,7 @@ fn iterative_deepening(
             break;
         }
 
+        // Update the best move only if there was NO unwind (the depth was searched fully)
         last_move = m;
         print_uci_info(depth, eval, nodes, elapsed);
 
@@ -264,7 +261,6 @@ fn go_movetime(
     stop_flag: &mut Arc<AtomicBool>,
     search_thread: &mut Option<JoinHandle<()>>,
 ) {
-    stop_search(stop_flag, search_thread);
     let mut game_clone = game.clone();
     let stop_flag_clone = Arc::clone(stop_flag);
 
@@ -275,7 +271,6 @@ fn go_movetime(
 }
 
 fn go_depth(game: &mut Game, depth: usize, stop_flag: &mut Arc<AtomicBool>, search_thread: &mut Option<JoinHandle<()>>) {
-    stop_search(stop_flag, search_thread);
     let mut game_clone = game.clone();
     let stop_flag_clone = Arc::clone(stop_flag);
 
@@ -286,7 +281,6 @@ fn go_depth(game: &mut Game, depth: usize, stop_flag: &mut Arc<AtomicBool>, sear
 }
 
 fn go_infinite(game: &mut Game, stop_flag: &mut Arc<AtomicBool>, search_thread: &mut Option<JoinHandle<()>>) {
-    stop_search(stop_flag, search_thread);
     let mut game_clone = game.clone();
     let stop_flag_clone = Arc::clone(stop_flag);
 
