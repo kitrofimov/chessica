@@ -105,7 +105,8 @@ impl Game {
         is_insufficient_material(&self.position)
     }
 
-    // Returns (eval, unwind)
+    // Returns (best_move, best_eval, pv, unwind)
+    // PV is REVERSED (leaf -> root), reverse it when printing to get normal root -> leaf
     fn minimax_alphabeta(
         &mut self,
         depth: usize,
@@ -115,36 +116,38 @@ impl Game {
         stop_flag: &Arc<AtomicBool>,
         start_time: Instant,
         time_limit: Option<Duration>,
-        nodes: &mut u64
-    ) -> (i32, bool) {
+        nodes: &mut u64,
+    ) -> (Option<Move>, i32, Vec<Move>, bool) {
         *nodes += 1;
 
         if self.is_threefold_repetition() ||
             self.is_fifty_move_rule() ||
             self.is_insufficient_material() {
-            return (0, false);  // draw
+            return (None, 0, Vec::new(), false);  // draw
+        }
+
+        if depth == 0 {
+            return (None, evaluate(&self.position), Vec::new(), false);
         }
 
         // Unwind the search if `stop_flag` was set or time is over
         // Check every 1024 nodes, because it is time-expensive
         if *nodes % 1024 == 0 {
             if stop_flag.load(Ordering::Relaxed) {
-                return (evaluate(&self.position), true);
+                return (None, evaluate(&self.position), Vec::new(), true);
             }
 
             if let Some(tl) = time_limit {
                 if start_time.elapsed() >= tl {
-                    return (evaluate(&self.position), true);
+                    return (None, evaluate(&self.position), Vec::new(), true);
                 }
             }
         }
 
-        if depth == 0 {
-            return (evaluate(&self.position), false);
-        }
-
         let moves = self.pseudo_moves();
-        let mut best = if maximize { i32::MIN } else { i32::MAX };
+        let mut best_eval = if maximize { i32::MIN } else { i32::MAX };
+        let mut best_move = None;
+        let mut best_pv = None;
         let mut found_legal_move = false;
 
         for m in &moves {
@@ -154,7 +157,7 @@ impl Game {
             }
 
             found_legal_move = true;
-            let (eval, unwind) = self.minimax_alphabeta(
+            let (_best_response, eval, mut child_pv, unwind) = self.minimax_alphabeta(
                 depth - 1,
                 alpha,
                 beta,
@@ -166,14 +169,25 @@ impl Game {
             );
             self.unmake_move();
             if unwind {
-                return (best, true);
+                return (None, best_eval, Vec::new(), true);
+            }
+
+            let is_better = if maximize {
+                eval > best_eval
+            } else {
+                eval < best_eval
+            };
+
+            if is_better {
+                best_eval = eval;
+                best_move = Some(m);
+                child_pv.push(*m);
+                best_pv = Some(child_pv);
             }
 
             if maximize {
-                best = max(best, eval);
                 alpha = max(alpha, eval);
             } else {
-                best = min(best, eval);
                 beta = min(beta, eval);
             }
 
@@ -185,62 +199,46 @@ impl Game {
         if !found_legal_move {
             // Checkmate
             if is_king_in_check(&self.position, self.position.player_to_move) {
-                return (match self.position.player_to_move {  // losing sooner is worse
+                // losing sooner is worse
+                let eval = match self.position.player_to_move {
                     Player::White => -10_000 + depth as i32,
                     Player::Black =>  10_000 - depth as i32,
-                }, false);
+                };
+                return (None, eval, Vec::new(), false);
             } else {  // Draw
-                return (0, false);
+                return (None, 0, Vec::new(), false);
             }
         }
 
-        (best, false)
+        (best_move.copied(), best_eval, best_pv.unwrap(), false)
     }
 
-    // Returns (best_move, best_score, nodes, unwind)
+    // Returns (best_move, best_score, nodes, pv, unwind)
     pub fn find_best_move(
         &mut self,
         depth: usize,
         stop_flag: &Arc<AtomicBool>,
         start_time: Instant,
         time_limit: Option<Duration>
-    ) -> (Option<Move>, i32, u64, bool) {
-        let mut best_move = None;
-        let (mut best_score, maximize) = match self.position.player_to_move {
-            Player::White => (i32::MIN, true),
-            Player::Black => (i32::MAX, false),
+    ) -> (Option<Move>, i32, u64, Vec<Move>, bool) {
+        let maximize = match self.position.player_to_move {
+            Player::White => true,
+            Player::Black => false,
         };
-
         let mut nodes = 0;
 
-        for m in self.pseudo_moves() {
-            let legal = self.try_to_make_move(&m);
-            if !legal {
-                continue;
-            }
-            let (eval, unwind) = self.minimax_alphabeta(
-                depth - 1,
-                i32::MIN,
-                i32::MAX,
-                maximize,
-                stop_flag,
-                start_time,
-                time_limit,
-                &mut nodes
-            );
-            self.unmake_move();
+        let (best_move, best_eval, pv, unwind) = self.minimax_alphabeta(
+            depth,  // NOT depth-1 here! compare the outputs of `go depth 1`
+            i32::MIN,
+            i32::MAX,
+            maximize,
+            stop_flag,
+            start_time,
+            time_limit,
+            &mut nodes
+        );
 
-            if (maximize && eval > best_score) || (!maximize && eval < best_score) {
-                best_score = eval;
-                best_move = Some(m);
-            }
-
-            if unwind {
-                return (best_move, best_score, nodes, true);
-            }
-        }
-
-        (best_move, best_score, nodes, false)
+        (best_move, best_eval, nodes, pv, unwind)
     }
 }
 

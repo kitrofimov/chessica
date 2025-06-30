@@ -192,15 +192,19 @@ fn go_perft(game: &mut Game, depth: usize, stop_flag: &mut Arc<AtomicBool>, sear
     }));
 }
 
-fn print_uci_info(depth: usize, eval: i32, nodes: u64, elapsed: Duration) {
-    println!(
-        "info depth {} score cp {} time {} nodes {} nps {}",
+fn print_uci_info(depth: usize, eval: i32, nodes: u64, pv: Vec<Move>, elapsed: Duration) {
+    print!(
+        "info depth {} score cp {} time {} nodes {} nps {} pv ",
         depth,
         eval,
         elapsed.as_millis(),
         nodes,
         (nodes as f64 / elapsed.as_secs_f64()).round()
     );
+    for m in pv.iter().rev() {
+        print!("{} ", m.to_string())
+    }
+    println!();
 }
 
 fn print_best_move(best_move: Option<Move>) {
@@ -229,7 +233,7 @@ fn iterative_deepening(
         }
 
         let depth_start = Instant::now();
-        let (m, eval, nodes, unwind) = game.find_best_move(
+        let (m, eval, nodes, pv, unwind) = game.find_best_move(
             depth,
             &stop_flag,
             start,
@@ -243,7 +247,7 @@ fn iterative_deepening(
 
         // Update the best move only if there was NO unwind (the depth was searched fully)
         last_move = m;
-        print_uci_info(depth, eval, nodes, elapsed);
+        print_uci_info(depth, eval, nodes, pv, elapsed);
 
         if let Some(limit) = time_limit {
             if start.elapsed() >= limit {
