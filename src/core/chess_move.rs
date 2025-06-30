@@ -1,6 +1,6 @@
 use crate::{constants::board, core::{piece::Piece, player::Player}, utility::square_idx_to_string};
 
-// TODO: will tightly-packing this improve performance?
+// Tightly-packing this does not improve performance
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
 pub struct Move {
     pub from: u8,
