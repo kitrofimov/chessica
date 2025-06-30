@@ -2,7 +2,7 @@ use std::{sync::{atomic::{AtomicBool, Ordering}, Arc}, time::Duration};
 use std::thread::{self, JoinHandle};
 use std::time::Instant;
 
-use crate::{constants::{AUTHOR, NAME}, core::{chess_move::Move, position::FenParseError}};
+use crate::{constants::{AUTHOR, CHECKMATE_EVAL, NAME}, core::{chess_move::Move, position::FenParseError}};
 use crate::core::{
     game::Game,
     player::Player,
@@ -193,14 +193,23 @@ fn go_perft(game: &mut Game, depth: usize, stop_flag: &mut Arc<AtomicBool>, sear
 }
 
 fn print_uci_info(depth: usize, eval: i32, nodes: u64, pv: Vec<Move>, elapsed: Duration) {
+    let score = if eval.abs() > CHECKMATE_EVAL - 1000 {
+        let n_moves = ((CHECKMATE_EVAL - eval.abs()) as f64 / 2.).ceil();
+        let mate_in = if eval > 0 { n_moves } else { -n_moves };
+        format!("mate {}", mate_in)
+    } else {
+        format!("cp {}", eval)
+    };
+
     print!(
-        "info depth {} score cp {} time {} nodes {} nps {} pv ",
+        "info depth {} score {} time {} nodes {} nps {} pv ",
         depth,
-        eval,
+        score,
         elapsed.as_millis(),
         nodes,
         (nodes as f64 / elapsed.as_secs_f64()).round()
     );
+
     for m in pv.iter().rev() {
         print!("{} ", m.to_string())
     }

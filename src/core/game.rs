@@ -123,7 +123,7 @@ impl Game {
         if self.is_threefold_repetition() ||
             self.is_fifty_move_rule() ||
             self.is_insufficient_material() {
-            return (None, 0, Vec::new(), false);  // draw
+            return (None, DRAW_EVAL, Vec::new(), false);
         }
 
         if depth == 0 {
@@ -201,12 +201,12 @@ impl Game {
             if is_king_in_check(&self.position, self.position.player_to_move) {
                 // losing sooner is worse
                 let eval = match self.position.player_to_move {
-                    Player::White => -10_000 + depth as i32,
-                    Player::Black =>  10_000 - depth as i32,
+                    Player::White => -CHECKMATE_EVAL + depth as i32,
+                    Player::Black =>  CHECKMATE_EVAL - depth as i32,
                 };
                 return (None, eval, Vec::new(), false);
             } else {  // Draw
-                return (None, 0, Vec::new(), false);
+                return (None, DRAW_EVAL, Vec::new(), false);
             }
         }
 

@@ -46,17 +46,17 @@ Hobby-level, bitboard-representation chess engine
     - [x] Why `perft` became so slow? Did the cloning of `Game`s become too expensive?
         - Optimized: (22 mil NPS =>) 4 mil NPS => 13 mil NPS => 19 mil NPS
     - [x] Do all the TODO comments
-    - [ ] What does happen when minimax stumbles upon checkmate or stalemate?
-    - [ ] Forced mate evaluation?
-    - [ ] Print PV - principal variation (main line)
+    - [x] Print PV - principal variation (main line)
     - [ ] Come up with a cool name and rename the project
 
 ## Roadmap
 - [x] Move generation
 - [x] Alpha-beta pruned minimax search
 - [x] Zobrist hashing
-- [ ] Transposition table
 - [ ] Move ordering
+- [ ] Quiescence Search
+- [ ] Fix forced mate evaluation
+- [ ] Transposition table
 - [ ] Better evaluation function
 - [ ] Pondering
 - [ ] Better time control (adaptive `moves_remaining` in `uci::compute_movetime`)
