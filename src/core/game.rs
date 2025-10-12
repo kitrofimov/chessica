@@ -67,7 +67,7 @@ impl Game {
     }
 
     pub fn unmake_move(&mut self) {
-        let mut clock = self.halfmove_clock;
+        let mut clock = self.halfmove_clock;  // double mutable borrow workaround
         unmake_move(&mut self.position, self.undos.pop().unwrap(), &mut clock);
         self.halfmove_clock = clock;
     }
@@ -144,13 +144,13 @@ impl Game {
             }
         }
 
-        let moves = self.pseudo_moves();
+        let pseudo_moves = self.pseudo_moves();
         let mut best_eval = if maximize { i32::MIN } else { i32::MAX };
         let mut best_move = None;
         let mut best_pv = None;
         let mut found_legal_move = false;
 
-        for m in &moves {
+        for m in &pseudo_moves {
             let legal = self.try_to_make_move(m);
             if !legal {
                 continue;

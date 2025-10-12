@@ -250,11 +250,11 @@ fn iterative_deepening(
         );
         let elapsed = depth_start.elapsed();
 
+        // Update the best move only if there was NO unwind (the depth was searched fully)
         if unwind {
             break;
         }
 
-        // Update the best move only if there was NO unwind (the depth was searched fully)
         last_move = m;
         print_uci_info(depth, eval, nodes, pv, elapsed);
 
