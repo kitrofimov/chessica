@@ -233,6 +233,7 @@ fn iterative_deepening(
 {
     let mut last_move = None;
     let start = Instant::now();
+    let mut last_pv_move = None;
 
     for depth in 1.. {
         if let Some(d) = max_depth {
@@ -246,7 +247,8 @@ fn iterative_deepening(
             depth,
             &stop_flag,
             start,
-            time_limit
+            time_limit,
+            last_pv_move
         );
         let elapsed = depth_start.elapsed();
 
@@ -256,6 +258,7 @@ fn iterative_deepening(
         }
 
         last_move = m;
+        last_pv_move = Some(pv[0]);
         print_uci_info(depth, eval, nodes, pv, elapsed);
 
         if let Some(limit) = time_limit {

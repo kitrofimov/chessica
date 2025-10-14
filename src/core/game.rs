@@ -67,11 +67,12 @@ impl Game {
         pseudo_moves(&self.position)
     }
 
-    pub fn order_moves(&self, moves: Vec<Move>, depth: usize) -> Vec<Move> {
+    pub fn order_moves(&self, moves: Vec<Move>, depth: usize, last_pv_move: Option<Move>) -> Vec<Move> {
         return order_moves(
             moves, &self.position,
             &self.search_state.killer_moves[depth],
-            &self.search_state.history
+            &self.search_state.history,
+            last_pv_move
         );
     }
 
@@ -143,6 +144,7 @@ impl Game {
         start_time: Instant,
         time_limit: Option<Duration>,
         nodes: &mut u64,
+        last_pv_move: Option<Move>
     ) -> (Option<Move>, i32, Vec<Move>, bool) {
         *nodes += 1;
 
@@ -171,7 +173,7 @@ impl Game {
         }
 
         let pseudo_moves = self.pseudo_moves();
-        let sorted_pseudo_moves = self.order_moves(pseudo_moves, depth);
+        let sorted_pseudo_moves = self.order_moves(pseudo_moves, depth, last_pv_move);
         let mut best_eval = if maximize { i32::MIN } else { i32::MAX };
         let mut best_move = None;
         let mut best_pv = None;
@@ -192,7 +194,8 @@ impl Game {
                 stop_flag,
                 start_time,
                 time_limit,
-                nodes
+                nodes,
+                last_pv_move
             );
             self.unmake_move();
             if unwind {
@@ -228,8 +231,8 @@ impl Game {
                         killers[0] = Some(*m);
                     }
                 }
-                self.search_state.history[m.from as usize][m.to as usize] += 
-                    (depth * depth).clamp(0, MOVE_ORDERING_HISTORY_CAP) as i32;
+                self.search_state.history[m.from as usize][m.to as usize] += (depth * depth) as i32;
+                self.search_state.history[m.from as usize][m.to as usize].clamp(0, MOVE_ORDERING_HISTORY_CAP) as i32;
                 break;
             }
         }
@@ -257,7 +260,8 @@ impl Game {
         depth: usize,
         stop_flag: &Arc<AtomicBool>,
         start_time: Instant,
-        time_limit: Option<Duration>
+        time_limit: Option<Duration>,
+        last_pv_move: Option<Move>
     ) -> (Option<Move>, i32, u64, Vec<Move>, bool) {
         let maximize = match self.position.player_to_move {
             Player::White => true,
@@ -273,7 +277,8 @@ impl Game {
             stop_flag,
             start_time,
             time_limit,
-            &mut nodes
+            &mut nodes,
+            last_pv_move
         );
 
         (best_move, best_eval, nodes, pv, unwind)
