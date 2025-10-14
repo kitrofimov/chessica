@@ -3,6 +3,7 @@ pub mod board;
 pub mod attacks;
 pub mod masks;
 pub mod zobrist;
+pub mod move_ordering;
 
 pub const NAME: &str = "chess-engine";
 pub const AUTHOR: &str = "Kirill Trofimov";

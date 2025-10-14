@@ -1,4 +1,8 @@
-use crate::{constants::board, core::{piece::Piece, player::Player}, utility::square_idx_to_string};
+use crate::{
+    constants::{board, move_ordering::MVV_LVA_PROMOTION_BONUS},
+    core::{piece::Piece, player::Player, position::Position},
+    utility::square_idx_to_string
+};
 
 // Tightly-packing this does not improve performance
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
@@ -79,6 +83,27 @@ impl Move {
 
     pub fn is_castling(&self) -> bool {
         self.kingside_castling | self.queenside_castling
+    }
+
+    pub fn is_capture(&self) -> bool {
+        self.capture
+    }
+
+    pub fn is_promotion(&self) -> bool {
+        self.promotion.is_some()
+    }
+
+    pub fn mvv_lva_score(&self, position: &Position) -> i32 {
+        let mut score = 0;
+        if self.is_promotion() {
+            score += MVV_LVA_PROMOTION_BONUS;
+        }
+        if self.is_capture() {
+            let victim = position.what(self.to).map(|(_, piece)| piece.value()).unwrap();
+            let attacker = self.piece.value();
+            score += 10 * victim - attacker;
+        }
+        score
     }
 }
 

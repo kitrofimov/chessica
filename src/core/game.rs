@@ -8,6 +8,7 @@ use crate::core::{
     chess_move::*,
     evaluate::evaluate,
     movegen::pseudo_moves,
+    move_ordering::order_moves,
     player::Player,
     position::*,
     rules::{
@@ -47,6 +48,10 @@ impl Game {
 
     pub fn pseudo_moves(&self) -> Vec<Move> {
         pseudo_moves(&self.position)
+    }
+
+    pub fn order_moves(&self, moves: Vec<Move>) -> Vec<Move> {
+        return order_moves(moves, &self.position)
     }
 
     pub fn try_to_make_move(&mut self, m: &Move) -> bool {
@@ -145,12 +150,13 @@ impl Game {
         }
 
         let pseudo_moves = self.pseudo_moves();
+        let sorted_pseudo_moves = self.order_moves(pseudo_moves);
         let mut best_eval = if maximize { i32::MIN } else { i32::MAX };
         let mut best_move = None;
         let mut best_pv = None;
         let mut found_legal_move = false;
 
-        for m in &pseudo_moves {
+        for m in &sorted_pseudo_moves {
             let legal = self.try_to_make_move(m);
             if !legal {
                 continue;
@@ -192,6 +198,8 @@ impl Game {
             }
 
             if beta <= alpha {
+                // TODO: count number of cutoffs globally
+                // to check if move ordering is useful
                 break;
             }
         }
