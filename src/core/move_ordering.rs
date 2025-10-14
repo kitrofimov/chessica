@@ -2,7 +2,12 @@ use crate::core::chess_move::Move;
 use crate::constants::move_ordering::*;
 use crate::core::position::Position;
 
-pub fn order_moves(mut moves: Vec<Move>, position: &Position, killers: &[Option<Move>; 2]) -> Vec<Move> {
+pub fn order_moves(
+    mut moves: Vec<Move>,
+    position: &Position,
+    killers: &[Option<Move>; 2],
+    history: &[[i32; 64]; 64]
+) -> Vec<Move> {
     moves.sort_by_key(|m| {
         // TODO: PV & TT/Hash move
         if m.is_capture() {  // MVV-LVA captures
@@ -18,9 +23,8 @@ pub fn order_moves(mut moves: Vec<Move>, position: &Position, killers: &[Option<
             MOVE_ORDERING_KILLER_1
         } else if Some(*m) == killers[1] {
             MOVE_ORDERING_KILLER_2
-        // TODO: History moves
         } else {
-            0
+            history[m.from as usize][m.to as usize]
         }
     });
     moves.reverse(); // highest score first
