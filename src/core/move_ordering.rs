@@ -10,7 +10,7 @@ pub fn order_moves(
     last_pv_move: Option<Move>
 ) -> Vec<Move> {
     moves.sort_by_key(|m| {
-        // TODO: PV & TT/Hash move
+        // TODO: TT/Hash move
         if Some(*m) == last_pv_move {
             MOVE_ORDERING_LAST_PV_MOVE
         } else if m.is_capture() {  // MVV-LVA captures
@@ -30,6 +30,6 @@ pub fn order_moves(
             history[m.from as usize][m.to as usize]
         }
     });
-    moves.reverse(); // highest score first
+    moves.reverse(); // Highest score first
     return moves;
 }
