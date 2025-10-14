@@ -23,12 +23,13 @@ Hobby-level, bitboard-representation chess engine that **is in active developmen
 - [x] (A little bit of) optimization
 - [ ] Move ordering
 - [ ] Quiescence Search
-- [ ] Fix forced mate evaluation
 - [ ] Transposition table
 - [ ] Better evaluation function
-- [ ] Pondering
+- [ ] Static Exchange Evaluation
+- [ ] Fix forced mate evaluation
 - [ ] Better time control (adaptive `moves_remaining` in `uci::compute_movetime`)
 - [ ] Opening book
+- [ ] Pondering
 - [ ] Endgame database
 
 ## Building
