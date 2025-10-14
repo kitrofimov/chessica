@@ -3,7 +3,7 @@ use std::{
     sync::{atomic::{AtomicBool, Ordering}, Arc},
     time::{Duration, Instant}
 };
-use crate::constants::*;
+use crate::constants::{*, move_ordering::KILLER_MOVES_PLY_DEPTH};
 use crate::core::{
     chess_move::*,
     evaluate::evaluate,
@@ -24,34 +24,50 @@ pub struct Game {
     pub position: Position,
     pub undos: Vec<UndoData>,
     pub halfmove_clock: usize,
+    pub killer_moves: [[Option<Move>; 2]; KILLER_MOVES_PLY_DEPTH],
 }
 
 impl Default for Game {
     fn default() -> Self {
         let undos = Vec::with_capacity(GAME_HISTORY_CAPACITY);
         let position = Position::default();
-        Game { position, undos, halfmove_clock: 0 }
+        Game {
+            position,
+            undos,
+            halfmove_clock: 0,
+            killer_moves: [[None; 2]; KILLER_MOVES_PLY_DEPTH]
+        }
     }
 }
 
 impl Game {
     pub fn new(pos: Position) -> Game {
         let undos = Vec::with_capacity(GAME_HISTORY_CAPACITY);
-        Game { position: pos, undos, halfmove_clock: 0 }
+        Game {
+            position: pos,
+            undos,
+            halfmove_clock: 0,
+            killer_moves: [[None; 2]; KILLER_MOVES_PLY_DEPTH]
+        }
     }
 
     pub fn from_fen(fen: &str) -> Result<Game, FenParseError> {
         let (position, clock) = Position::from_fen(fen)?;
         let undos = Vec::with_capacity(GAME_HISTORY_CAPACITY);
-        Ok(Game { position, undos, halfmove_clock: clock })
+        Ok(Game {
+            position,
+            undos,
+            halfmove_clock: clock,
+            killer_moves: [[None; 2]; KILLER_MOVES_PLY_DEPTH]
+        })
     }
 
     pub fn pseudo_moves(&self) -> Vec<Move> {
         pseudo_moves(&self.position)
     }
 
-    pub fn order_moves(&self, moves: Vec<Move>) -> Vec<Move> {
-        return order_moves(moves, &self.position)
+    pub fn order_moves(&self, moves: Vec<Move>, depth: usize) -> Vec<Move> {
+        return order_moves(moves, &self.position, &self.killer_moves[depth]);
     }
 
     pub fn try_to_make_move(&mut self, m: &Move) -> bool {
@@ -150,7 +166,7 @@ impl Game {
         }
 
         let pseudo_moves = self.pseudo_moves();
-        let sorted_pseudo_moves = self.order_moves(pseudo_moves);
+        let sorted_pseudo_moves = self.order_moves(pseudo_moves, depth);
         let mut best_eval = if maximize { i32::MIN } else { i32::MAX };
         let mut best_move = None;
         let mut best_pv = None;
@@ -200,6 +216,13 @@ impl Game {
             if beta <= alpha {
                 // TODO: count number of cutoffs globally
                 // to check if move ordering is useful
+                if !m.is_capture() && !m.is_promotion() {  // Filling killer moves
+                    let killers = &mut self.killer_moves[depth];
+                    if Some(*m) != killers[0] {
+                        killers[1] = killers[0];
+                        killers[0] = Some(*m);
+                    }
+                }
                 break;
             }
         }

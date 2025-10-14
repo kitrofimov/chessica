@@ -101,7 +101,7 @@ impl Move {
         if self.is_capture() {
             let victim = position.what(self.to).map(|(_, piece)| piece.value()).unwrap();
             let attacker = self.piece.value();
-            score += 10 * victim - attacker;
+            score += victim - attacker;
         }
         score
     }
