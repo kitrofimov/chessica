@@ -10,6 +10,7 @@ use crate::core::{
     movegen::pseudo_moves,
     move_ordering::order_moves,
     search_state::SearchState,
+    transposition_table::*,
     player::Player,
     position::*,
     rules::{
@@ -26,6 +27,7 @@ pub struct Game {
     pub undos: Vec<UndoData>,
     pub halfmove_clock: usize,
     pub search_state: SearchState,
+    pub transposition_table: TranspositionTable,
 }
 
 impl Default for Game {
@@ -37,6 +39,7 @@ impl Default for Game {
             undos,
             halfmove_clock: 0,
             search_state: SearchState::default(),
+            transposition_table: TranspositionTable::new(),
         }
     }
 }
@@ -49,6 +52,7 @@ impl Game {
             undos,
             halfmove_clock: 0,
             search_state: SearchState::default(),
+            transposition_table: TranspositionTable::new(),
         }
     }
 
@@ -60,6 +64,7 @@ impl Game {
             undos,
             halfmove_clock: clock,
             search_state: SearchState::default(),
+            transposition_table: TranspositionTable::new(),
         })
     }
 
@@ -68,10 +73,12 @@ impl Game {
     }
 
     pub fn order_moves(&self, moves: Vec<Move>, depth: usize, last_pv_move: Option<Move>) -> Vec<Move> {
+        let hash_move = self.transposition_table.probe(self.position.zobrist_hash).and_then(|e| e.best_move);
         return order_moves(
             moves, &self.position,
             &self.search_state.killer_moves[depth],
             &self.search_state.history,
+            hash_move,
             last_pv_move
         );
     }
@@ -148,6 +155,29 @@ impl Game {
     ) -> (Option<Move>, i32, Vec<Move>, bool) {
         *nodes += 1;
 
+        // TODO: what to do with PV when looking up in TT?
+        if let Some(tt_entry) = self.transposition_table.probe(self.position.zobrist_hash) {
+            if tt_entry.depth >= depth as u8 {  // Use TT entry only if it is deep enough
+                let return_value = (tt_entry.best_move, tt_entry.eval, vec![], false);
+                match tt_entry.flag {
+                    NodeType::Exact =>
+                        return return_value,
+                    NodeType::LowerBound => {
+                        if tt_entry.eval >= beta {
+                            return return_value;
+                        }
+                        alpha = alpha.max(tt_entry.eval);
+                    }
+                    NodeType::UpperBound => {
+                        if tt_entry.eval <= alpha {
+                            return return_value;
+                        }
+                        beta = beta.min(tt_entry.eval);
+                    }
+                }
+            }
+        }
+
         if self.is_threefold_repetition() ||
             self.is_fifty_move_rule() ||
             self.is_insufficient_material() {
@@ -178,6 +208,9 @@ impl Game {
         let mut best_move = None;
         let mut best_pv = None;
         let mut found_legal_move = false;
+
+        let alpha_orig = alpha;
+        let beta_orig = beta;
 
         for m in &sorted_pseudo_moves {
             let legal = self.try_to_make_move(m);
@@ -231,11 +264,30 @@ impl Game {
                         killers[0] = Some(*m);
                     }
                 }
-                self.search_state.history[m.from as usize][m.to as usize] += (depth * depth) as i32;
-                self.search_state.history[m.from as usize][m.to as usize].clamp(0, MOVE_ORDERING_HISTORY_CAP) as i32;
+
+                // Update history heuristic
+                let history_entry = &mut self.search_state.history[m.from as usize][m.to as usize];
+                *history_entry = history_entry.saturating_add((depth * depth) as i32).clamp(0, MOVE_ORDERING_HISTORY_CAP) as i32;
+
                 break;
             }
         }
+
+        let flag = if best_eval <= alpha_orig {
+            NodeType::UpperBound
+        } else if best_eval >= beta_orig {
+            NodeType::LowerBound
+        } else {
+            NodeType::Exact
+        };
+
+        self.transposition_table.insert(TTEntry {
+            zobrist: self.position.zobrist_hash,
+            depth: depth as u8,
+            eval: best_eval,
+            flag,
+            best_move: best_move.copied(),
+        });
 
         if !found_legal_move {
             // Checkmate

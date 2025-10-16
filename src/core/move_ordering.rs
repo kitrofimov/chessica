@@ -7,11 +7,13 @@ pub fn order_moves(
     position: &Position,
     killers: &[Option<Move>; 2],
     history: &[[i32; 64]; 64],
+    hash_move: Option<Move>,
     last_pv_move: Option<Move>
 ) -> Vec<Move> {
     moves.sort_by_key(|m| {
-        // TODO: TT/Hash move
-        if Some(*m) == last_pv_move {
+        if Some(*m) == hash_move {
+            MOVE_ORDERING_HASH_MOVE
+        } else if Some(*m) == last_pv_move {
             MOVE_ORDERING_LAST_PV_MOVE
         } else if m.is_capture() {  // MVV-LVA captures
             let mvv_lva = m.mvv_lva_score(position);

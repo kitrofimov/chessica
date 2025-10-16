@@ -11,3 +11,4 @@ pub mod rules;
 pub mod zobrist;
 pub mod move_ordering;
 pub mod search_state;
+pub mod transposition_table;
