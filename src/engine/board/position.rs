@@ -6,7 +6,7 @@ use crate::engine::{
         _move::CastlingRights,
         piece::Piece,
     },
-    zobrist::zobrist_hash,
+    board::zobrist::zobrist_hash,
 };
 
 /// Uses [Little-Endian Rank-File Mapping](https://www.chessprogramming.org/Square_Mapping_Considerations#Little-Endian_Rank-File_Mapping)
