@@ -5,8 +5,8 @@ use std::time::Instant;
 use crate::{
     engine::{
         base::player::Player,
+        search::perft::*,
         game::Game,
-        perft::*,
     },
     uci::{output::*, search_control::*},
 };
