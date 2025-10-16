@@ -6,7 +6,7 @@ use crate::{
     engine::{
         base::player::Player,
         search::perft::*,
-        game::Game,
+        engine::Engine,
     },
     uci::{output::*, search_control::*},
 };
@@ -66,7 +66,7 @@ fn parse_go_params(tokens: &[&str]) -> GoParams {
     params
 }
 
-fn compute_movetime(game: &mut Game, wtime: usize, btime: usize, winc: usize, binc: usize) -> usize {
+fn compute_movetime(game: &mut Engine, wtime: usize, btime: usize, winc: usize, binc: usize) -> usize {
     let (time, inc) = if game.position.player_to_move == Player::White {
         (wtime, winc)
     } else {
@@ -81,7 +81,7 @@ fn compute_movetime(game: &mut Game, wtime: usize, btime: usize, winc: usize, bi
 }
 
 pub fn go(
-    game: &mut Game,
+    game: &mut Engine,
     tokens: &[&str],
     stop_flag: &mut Arc<AtomicBool>,
     search_thread: &mut Option<JoinHandle<()>>,
@@ -108,7 +108,7 @@ pub fn go(
     }
 }
 
-fn go_perft(game: &mut Game, depth: usize, stop_flag: &mut Arc<AtomicBool>, search_thread: &mut Option<JoinHandle<()>>) {
+fn go_perft(game: &mut Engine, depth: usize, stop_flag: &mut Arc<AtomicBool>, search_thread: &mut Option<JoinHandle<()>>) {
     let mut game_clone = game.clone();
     let stop_flag_clone = Arc::clone(stop_flag);
 
@@ -129,7 +129,7 @@ fn go_perft(game: &mut Game, depth: usize, stop_flag: &mut Arc<AtomicBool>, sear
 }
 
 fn go_movetime(
-    game: &mut Game,
+    game: &mut Engine,
     movetime: Duration,
     stop_flag: &mut Arc<AtomicBool>,
     search_thread: &mut Option<JoinHandle<()>>,
@@ -143,7 +143,7 @@ fn go_movetime(
     }));
 }
 
-fn go_depth(game: &mut Game, depth: usize, stop_flag: &mut Arc<AtomicBool>, search_thread: &mut Option<JoinHandle<()>>) {
+fn go_depth(game: &mut Engine, depth: usize, stop_flag: &mut Arc<AtomicBool>, search_thread: &mut Option<JoinHandle<()>>) {
     let mut game_clone = game.clone();
     let stop_flag_clone = Arc::clone(stop_flag);
 
@@ -153,7 +153,7 @@ fn go_depth(game: &mut Game, depth: usize, stop_flag: &mut Arc<AtomicBool>, sear
     }));
 }
 
-fn go_infinite(game: &mut Game, stop_flag: &mut Arc<AtomicBool>, search_thread: &mut Option<JoinHandle<()>>) {
+fn go_infinite(game: &mut Engine, stop_flag: &mut Arc<AtomicBool>, search_thread: &mut Option<JoinHandle<()>>) {
     let mut game_clone = game.clone();
     let stop_flag_clone = Arc::clone(stop_flag);
 

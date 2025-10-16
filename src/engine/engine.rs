@@ -25,7 +25,7 @@ use crate::engine::{
 };
 
 #[derive(Clone)]
-pub struct Game {
+pub struct Engine {
     pub position: Position,
     pub undos: Vec<UndoData>,
     pub halfmove_clock: usize,
@@ -33,11 +33,11 @@ pub struct Game {
     pub transposition_table: TranspositionTable,
 }
 
-impl Default for Game {
+impl Default for Engine {
     fn default() -> Self {
         let undos = Vec::with_capacity(GAME_HISTORY_CAPACITY);
         let position = Position::default();
-        Game {
+        Engine {
             position,
             undos,
             halfmove_clock: 0,
@@ -47,10 +47,10 @@ impl Default for Game {
     }
 }
 
-impl Game {
-    pub fn new(pos: Position) -> Game {
+impl Engine {
+    pub fn new(pos: Position) -> Engine {
         let undos = Vec::with_capacity(GAME_HISTORY_CAPACITY);
-        Game {
+        Engine {
             position: pos,
             undos,
             halfmove_clock: 0,
@@ -59,10 +59,10 @@ impl Game {
         }
     }
 
-    pub fn from_fen(fen: &str) -> Result<Game, FenParseError> {
+    pub fn from_fen(fen: &str) -> Result<Engine, FenParseError> {
         let (position, clock) = Position::from_fen(fen)?;
         let undos = Vec::with_capacity(GAME_HISTORY_CAPACITY);
-        Ok(Game {
+        Ok(Engine {
             position,
             undos,
             halfmove_clock: clock,
@@ -349,7 +349,7 @@ mod tests {
 
     #[test]
     fn threefold_repetition() -> Result<(), FenParseError> {
-        let mut game = Game::from_fen("8/2r5/8/4k3/8/6R1/3K4/8 w - - 0 1")?;
+        let mut game = Engine::from_fen("8/2r5/8/4k3/8/6R1/3K4/8 w - - 0 1")?;
 
         let m1 = Move::new(board::G3, board::F3, Piece::Rook, false);
         let m2 = Move::new(board::C7, board::C6, Piece::Rook, false);
@@ -369,7 +369,7 @@ mod tests {
 
     #[test]
     fn fifty_move_rule() -> Result<(), FenParseError> {
-        let mut game = Game::from_fen("8/3k4/1n6/8/8/5N2/3K4/8 w - - 99 1")?;
+        let mut game = Engine::from_fen("8/3k4/1n6/8/8/5N2/3K4/8 w - - 99 1")?;
         let m = Move::new(board::F3, board::G5, Piece::Knight, false);
         game.try_to_make_move(&m);
         assert_eq!(game.halfmove_clock, 100);

@@ -1,6 +1,6 @@
 use crate::constants::{AUTHOR, NAME};
 use crate::engine::{
-    game::Game,
+    engine::Engine,
     board::position::FenParseError
 };
 
@@ -14,11 +14,11 @@ pub fn isready() {
     println!("readyok");
 }
 
-pub fn ucinewgame(game: &mut Game) {
-    *game = Game::default();
+pub fn ucinewgame(game: &mut Engine) {
+    *game = Engine::default();
 }
 
-pub fn position(game: &mut Game, tokens: &[&str]) {
+pub fn position(game: &mut Engine, tokens: &[&str]) {
     if tokens.len() < 2 {
         return;
     }
@@ -31,7 +31,7 @@ pub fn position(game: &mut Game, tokens: &[&str]) {
                 return;
             }
             let fen = tokens[2..=7].join(" ");
-            match Game::from_fen(&fen) {
+            match Engine::from_fen(&fen) {
                 Ok(parsed) => {
                     *game = parsed;
                     i = 8;
@@ -43,7 +43,7 @@ pub fn position(game: &mut Game, tokens: &[&str]) {
             }
         }
         "startpos" => {
-            *game = Game::default();
+            *game = Engine::default();
             i = 2;
         }
         _ => return,

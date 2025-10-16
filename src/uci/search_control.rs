@@ -4,7 +4,7 @@ use std::time::Instant;
 
 use crate::{
     engine::{
-        game::Game,
+        engine::Engine,
         base::_move::Move,
     },
     uci::output::*,
@@ -22,7 +22,7 @@ pub fn stop_search(
 }
 
 pub fn iterative_deepening(
-    game: &mut Game,
+    game: &mut Engine,
     stop_flag: Arc<AtomicBool>,
     max_depth: Option<usize>,
     time_limit: Option<Duration>,

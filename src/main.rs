@@ -2,11 +2,11 @@ use std::io::{self, BufRead, Write};
 use std::sync::{Arc, atomic::AtomicBool};
 use std::thread::JoinHandle;
 
-use chess_engine::{engine::game::Game, uci};
+use chess_engine::{engine::engine::Engine, uci};
 
 fn main() {
     let stdin = io::stdin();
-    let mut game = Game::default();
+    let mut game = Engine::default();
 
     let mut stop_flag = Arc::new(AtomicBool::new(false));
     let mut search_thread: Option<JoinHandle<()>> = None;
