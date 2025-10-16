@@ -4,6 +4,8 @@ use crate::utility::square_idx_to_coordinates;
 
 pub type ZobristHash = u64;
 
+// Compute the Zobrist hash from scratch
+// Is only used when initializing a Position
 pub fn zobrist_hash(pos: &Position) -> u64 {
     let mut hash: u64 = 0;
     for sq_idx in 0..64 {

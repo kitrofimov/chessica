@@ -16,10 +16,12 @@ use crate::engine::{
             checks::*
         },
     },
-    evaluate::evaluate,
-    move_ordering::order_moves,
-    search_state::SearchState,
-    transposition_table::*,
+    search::{
+        evaluate::evaluate,
+        move_ordering::order_moves,
+        search_state::SearchState,
+        transposition_table::*,
+    },
 };
 
 #[derive(Clone)]
