@@ -1,4 +1,4 @@
-use crate::{engine::piece::Piece, utility::bit};
+use crate::{engine::base::piece::Piece, utility::bit};
 
 pub type Bitboard = u64;
 

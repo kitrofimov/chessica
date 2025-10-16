@@ -3,7 +3,7 @@ use crate::utility::lsb;
 use crate::engine::{
     position::*,
     movegen::*,
-    player::Player,
+    base::player::Player,
 };
 
 pub fn is_square_attacked(pos: &Position, sq: usize, by_player: Player) -> bool {

@@ -5,7 +5,7 @@ use std::time::Instant;
 use crate::{
     engine::{
         game::Game,
-        chess_move::Move,
+        base::_move::Move,
     },
     uci::output::*,
 };

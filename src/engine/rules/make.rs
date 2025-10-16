@@ -1,11 +1,8 @@
 use crate::constants::{board, zobrist::*};
 use crate::utility::square_idx_to_coordinates;
 use crate::engine::{
+    base::{bitboard::*, _move::*, piece::Piece, player::Player},
     position::*,
-    bitboard::*,
-    chess_move::*,
-    player::Player,
-    piece::Piece,
     rules::unmake::UndoData,
 };
 

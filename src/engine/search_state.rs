@@ -1,5 +1,5 @@
 use crate::constants::move_ordering::KILLER_MOVES_PLY_DEPTH;
-use crate::engine::chess_move::Move;
+use crate::engine::base::_move::Move;
 
 #[derive(Clone, Debug)]
 pub struct SearchState {

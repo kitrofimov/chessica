@@ -1,10 +1,7 @@
 use crate::constants::board;
 use crate::engine::{
     position::*,
-    bitboard::*,
-    chess_move::*,
-    player::Player,
-    piece::Piece,
+    base::{bitboard::BitboardSet, _move::*, player::Player, piece::Piece},
 };
 
 #[derive(Clone)]

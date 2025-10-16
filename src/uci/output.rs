@@ -1,6 +1,6 @@
 use std::time::Duration;
 use crate::constants::CHECKMATE_EVAL;
-use crate::engine::chess_move::Move;
+use crate::engine::base::_move::Move;
 
 pub fn print_uci_info(depth: usize, eval: i32, nodes: u64, pv: Vec<Move>, elapsed: Duration) {
     let score = if eval.abs() > CHECKMATE_EVAL - 1000 {

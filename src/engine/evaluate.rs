@@ -1,6 +1,6 @@
 use crate::engine::{
     position::Position,
-    piece::Piece,
+    base::piece::Piece,
 };
 
 pub fn evaluate(pos: &Position) -> i32 {

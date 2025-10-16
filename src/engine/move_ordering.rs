@@ -1,4 +1,4 @@
-use crate::engine::chess_move::Move;
+use crate::engine::base::_move::Move;
 use crate::constants::move_ordering::*;
 use crate::engine::position::Position;
 

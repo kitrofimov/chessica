@@ -1,7 +1,9 @@
 use crate::{engine::{
-    chess_move::{CastlingSide::*, *},
-    piece::Piece,
-    player::Player,
+    base::{
+        _move::{CastlingSide::{self, *}, Move},
+        piece::Piece,
+        player::Player,
+    },
     position::*,
     rules::checks::is_square_attacked,
 }};

@@ -5,13 +5,12 @@ use std::{
 };
 use crate::constants::{move_ordering::MOVE_ORDERING_HISTORY_CAP, *};
 use crate::engine::{
-    chess_move::*,
+    base::{_move::Move, player::Player},
     evaluate::evaluate,
     movegen::pseudo_moves,
     move_ordering::order_moves,
     search_state::SearchState,
     transposition_table::*,
-    player::Player,
     position::*,
     rules::{
         make::*,
@@ -342,7 +341,7 @@ impl Game {
 mod tests {
     use super::*;
     use crate::constants::board;
-    use crate::engine::piece::Piece;
+    use crate::engine::base::piece::Piece;
 
     #[test]
     fn threefold_repetition() -> Result<(), FenParseError> {

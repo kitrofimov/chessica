@@ -1,9 +1,11 @@
 use crate::utility::*;
 use crate::engine::{
-    bitboard::*,
-    player::Player,
-    chess_move::*,
-    piece::Piece,
+    base::{
+        bitboard::*,
+        player::Player,
+        _move::CastlingRights,
+        piece::Piece,
+    },
     zobrist::zobrist_hash,
 };
 

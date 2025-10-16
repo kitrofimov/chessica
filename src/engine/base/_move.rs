@@ -1,10 +1,14 @@
 use crate::{
+    engine::{
+        base::{piece::Piece, player::Player},
+        position::Position,
+    },
     constants::{board, move_ordering::MVV_LVA_PROMOTION_BONUS},
-    engine::{piece::Piece, player::Player, position::Position},
     utility::square_idx_to_string
 };
 
 // Tightly-packing this does not improve performance
+// (as tested on 30th June 2024)
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
 pub struct Move {
     pub from: u8,
