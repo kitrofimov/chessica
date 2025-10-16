@@ -1,6 +1,6 @@
 use crate::engine::base::_move::Move;
 use crate::constants::move_ordering::*;
-use crate::engine::position::Position;
+use crate::engine::board::position::Position;
 
 pub fn order_moves(
     mut moves: Vec<Move>,

@@ -1,7 +1,7 @@
 use crate::{
     engine::{
         base::{piece::Piece, player::Player},
-        position::Position,
+        board::position::Position,
     },
     constants::{board, move_ordering::MVV_LVA_PROMOTION_BONUS},
     utility::square_idx_to_string

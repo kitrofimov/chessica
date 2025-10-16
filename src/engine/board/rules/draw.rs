@@ -1,7 +1,7 @@
 use crate::utility::{is_square_color_white, lsb};
 use crate::engine::{
-    position::*,
     base::piece::Piece,
+    board::position::*,
 };
 
 pub fn is_insufficient_material(pos: &Position) -> bool {

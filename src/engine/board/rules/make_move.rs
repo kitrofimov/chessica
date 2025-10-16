@@ -2,8 +2,7 @@ use crate::constants::{board, zobrist::*};
 use crate::utility::square_idx_to_coordinates;
 use crate::engine::{
     base::{bitboard::*, _move::*, piece::Piece, player::Player},
-    position::*,
-    rules::unmake::UndoData,
+    board::{position::*, rules::unmake_move::UndoData},
 };
 
 pub fn make_move(pos: &mut Position, m: &Move, halfmove_clock: &mut usize) -> UndoData {

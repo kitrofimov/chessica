@@ -1,7 +1,7 @@
 use crate::constants::{AUTHOR, NAME};
 use crate::engine::{
     game::Game,
-    position::FenParseError
+    board::position::FenParseError
 };
 
 pub fn uci() {

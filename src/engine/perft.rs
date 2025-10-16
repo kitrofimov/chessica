@@ -44,7 +44,7 @@ pub fn perft(game: &mut Game, depth: usize, n_calls: usize, stop_flag: &Arc<Atom
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::engine::position::FenParseError;
+    use crate::engine::board::position::FenParseError;
 
     #[test]
     // https://www.chessprogramming.org/Perft_Results#Initial_Position

@@ -4,8 +4,10 @@ use crate::{engine::{
         piece::Piece,
         player::Player,
     },
-    position::*,
-    rules::checks::is_square_attacked,
+    board::{
+        position::*,
+        rules::checks::is_square_attacked,
+    },
 }};
 use crate::utility::*;
 use crate::constants::{board::*, attacks::*, magics::*, blockers::*, *};

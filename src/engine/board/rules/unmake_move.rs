@@ -1,7 +1,7 @@
 use crate::constants::board;
 use crate::engine::{
-    position::*,
     base::{bitboard::BitboardSet, _move::*, player::Player, piece::Piece},
+    board::position::*,
 };
 
 #[derive(Clone)]
@@ -89,7 +89,7 @@ fn undo_en_passant(hostile: &mut BitboardSet, m: &Move, who: Player) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::engine::rules::make::make_move;
+    use crate::engine::board::rules::make_move::make_move;
 
     #[test]
     fn unmake_move_normal_move() {

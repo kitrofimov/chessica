@@ -6,18 +6,20 @@ use std::{
 use crate::constants::{move_ordering::MOVE_ORDERING_HISTORY_CAP, *};
 use crate::engine::{
     base::{_move::Move, player::Player},
+    board::{
+        movegen::pseudo_moves,
+        position::*,
+        rules::{
+            make_move::*,
+            unmake_move::*,
+            draw::*,
+            checks::*
+        },
+    },
     evaluate::evaluate,
-    movegen::pseudo_moves,
     move_ordering::order_moves,
     search_state::SearchState,
     transposition_table::*,
-    position::*,
-    rules::{
-        make::*,
-        unmake::*,
-        draw::*,
-        checks::*
-    }
 };
 
 #[derive(Clone)]
