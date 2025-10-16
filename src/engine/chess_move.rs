@@ -1,6 +1,6 @@
 use crate::{
     constants::{board, move_ordering::MVV_LVA_PROMOTION_BONUS},
-    core::{piece::Piece, player::Player, position::Position},
+    engine::{piece::Piece, player::Player, position::Position},
     utility::square_idx_to_string
 };
 

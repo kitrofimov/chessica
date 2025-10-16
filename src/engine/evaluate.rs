@@ -1,4 +1,4 @@
-use crate::core::{
+use crate::engine::{
     position::Position,
     piece::Piece,
 };

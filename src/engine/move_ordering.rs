@@ -1,6 +1,6 @@
-use crate::core::chess_move::Move;
+use crate::engine::chess_move::Move;
 use crate::constants::move_ordering::*;
-use crate::core::position::Position;
+use crate::engine::position::Position;
 
 pub fn order_moves(
     mut moves: Vec<Move>,

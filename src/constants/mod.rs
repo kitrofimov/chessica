@@ -1,7 +1,7 @@
 pub mod magics;
 pub mod board;
 pub mod attacks;
-pub mod masks;
+pub mod blockers;
 pub mod zobrist;
 pub mod move_ordering;
 

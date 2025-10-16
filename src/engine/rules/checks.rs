@@ -1,6 +1,6 @@
 use crate::constants::attacks;
 use crate::utility::lsb;
-use crate::core::{
+use crate::engine::{
     position::*,
     movegen::*,
     player::Player,

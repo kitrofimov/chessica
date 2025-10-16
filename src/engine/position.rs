@@ -1,5 +1,5 @@
 use crate::utility::*;
-use crate::core::{
+use crate::engine::{
     bitboard::*,
     player::Player,
     chess_move::*,

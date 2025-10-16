@@ -1,5 +1,5 @@
 use crate::utility::{is_square_color_white, lsb};
-use crate::core::{
+use crate::engine::{
     position::*,
     piece::Piece,
 };

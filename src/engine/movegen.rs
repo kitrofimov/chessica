@@ -1,4 +1,4 @@
-use crate::{core::{
+use crate::{engine::{
     chess_move::{CastlingSide::*, *},
     piece::Piece,
     player::Player,
@@ -6,7 +6,7 @@ use crate::{core::{
     rules::checks::is_square_attacked,
 }};
 use crate::utility::*;
-use crate::constants::{board::*, attacks::*, magics::*, masks::*, *};
+use crate::constants::{board::*, attacks::*, magics::*, blockers::*, *};
 
 pub fn pseudo_moves(pos: &Position) -> Vec<Move> {
     let mut moves = Vec::with_capacity(MOVE_LIST_CAPACITY);

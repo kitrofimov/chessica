@@ -1,5 +1,5 @@
 use std::sync::{atomic::{AtomicBool, Ordering}, Arc};
-use crate::core::game::Game;
+use crate::engine::game::Game;
 
 // Is equal to 18_446_744_073_709_551_615 (roughly 18 quintillion = 18 * 10^18)
 // Large enough to assume it is never going to arise naturally, because if so,
@@ -44,7 +44,7 @@ pub fn perft(game: &mut Game, depth: usize, n_calls: usize, stop_flag: &Arc<Atom
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::core::position::FenParseError;
+    use crate::engine::position::FenParseError;
 
     #[test]
     // https://www.chessprogramming.org/Perft_Results#Initial_Position

@@ -1,6 +1,6 @@
 use crate::constants::{board, zobrist::*};
 use crate::utility::square_idx_to_coordinates;
-use crate::core::{
+use crate::engine::{
     position::*,
     bitboard::*,
     chess_move::*,

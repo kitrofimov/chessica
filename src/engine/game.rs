@@ -4,7 +4,7 @@ use std::{
     time::{Duration, Instant}
 };
 use crate::constants::{move_ordering::MOVE_ORDERING_HISTORY_CAP, *};
-use crate::core::{
+use crate::engine::{
     chess_move::*,
     evaluate::evaluate,
     movegen::pseudo_moves,
@@ -342,7 +342,7 @@ impl Game {
 mod tests {
     use super::*;
     use crate::constants::board;
-    use crate::core::piece::Piece;
+    use crate::engine::piece::Piece;
 
     #[test]
     fn threefold_repetition() -> Result<(), FenParseError> {

@@ -1,4 +1,4 @@
-use crate::core::chess_move::Move;
+use crate::engine::chess_move::Move;
 use crate::constants::TRANSPOSITION_TABLE_MB_SIZE;
 
 #[derive(Clone, Copy)]

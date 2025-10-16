@@ -1,5 +1,5 @@
 use crate::constants::zobrist::*;
-use crate::core::{position::*, player::Player};
+use crate::engine::{position::*, player::Player};
 use crate::utility::square_idx_to_coordinates;
 
 pub type ZobristHash = u64;

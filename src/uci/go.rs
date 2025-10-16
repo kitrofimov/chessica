@@ -1,79 +1,15 @@
-use std::{sync::{atomic::{AtomicBool, Ordering}, Arc}, time::Duration};
+use std::{sync::{atomic::AtomicBool, Arc}, time::Duration};
 use std::thread::{self, JoinHandle};
 use std::time::Instant;
 
-use crate::{constants::{AUTHOR, CHECKMATE_EVAL, NAME}, core::{chess_move::Move, position::FenParseError}};
-use crate::core::{
-    game::Game,
-    player::Player,
-    perft::*,
+use crate::{
+    engine::{
+        game::Game,
+        player::Player,
+        perft::*,
+    },
+    uci::{output::*, search_control::*},
 };
-
-pub fn uci() {
-    println!("id name {}", NAME);
-    println!("id author {}", AUTHOR);
-    println!("uciok");
-}
-
-pub fn isready() {
-    println!("readyok");
-}
-
-pub fn ucinewgame(game: &mut Game) {
-    *game = Game::default();
-}
-
-pub fn stop_search(
-    stop_flag: &mut Arc<AtomicBool>,
-    search_thread: &mut Option<JoinHandle<()>>,
-) {
-    stop_flag.store(true, Ordering::Relaxed);
-    if let Some(handle) = search_thread.take() {
-        let _ = handle.join();
-    }
-    stop_flag.store(false, Ordering::Relaxed);
-}
-
-pub fn position(game: &mut Game, tokens: &[&str]) {
-    if tokens.len() < 2 {
-        return;
-    }
-
-    let i;
-    match tokens[1] {
-        "fen" => {
-            if tokens.len() < 8 {
-                eprintln!("info string Bad FEN! {:?}", FenParseError::BadFieldCount);
-                return;
-            }
-            let fen = tokens[2..=7].join(" ");
-            match Game::from_fen(&fen) {
-                Ok(parsed) => {
-                    *game = parsed;
-                    i = 8;
-                }
-                Err(e) => {
-                    eprintln!("info string Bad FEN! {:?}", e);
-                    return;
-                }
-            }
-        }
-        "startpos" => {
-            *game = Game::default();
-            i = 2;
-        }
-        _ => return,
-    }
-
-    if tokens.get(i) == Some(&"moves") {
-        for mv in &tokens[i + 1..] {
-            let ok = game.try_to_make_uci_move(mv);
-            if !ok {
-                println!("info string Failed to execute move {}!", mv);
-            }
-        }
-    }
-}
 
 #[derive(Debug)]
 struct GoParams {
@@ -190,85 +126,6 @@ fn go_perft(game: &mut Game, depth: usize, stop_flag: &mut Arc<AtomicBool>, sear
             println!("Nodes per second: {:.2}", nodes as f64 / seconds);
         }
     }));
-}
-
-fn print_uci_info(depth: usize, eval: i32, nodes: u64, pv: Vec<Move>, elapsed: Duration) {
-    let score = if eval.abs() > CHECKMATE_EVAL - 1000 {
-        let n_moves = ((CHECKMATE_EVAL - eval.abs()) as f64 / 2.).ceil();
-        let mate_in = if eval > 0 { n_moves } else { -n_moves };
-        format!("mate {}", mate_in)
-    } else {
-        format!("cp {}", eval)
-    };
-
-    print!(
-        "info depth {} score {} time {} nodes {} nps {} pv ",
-        depth,
-        score,
-        elapsed.as_millis(),
-        nodes,
-        (nodes as f64 / elapsed.as_secs_f64()).round()
-    );
-
-    for m in pv.iter().rev() {
-        print!("{} ", m);
-    }
-    println!();
-}
-
-fn print_best_move(best_move: Option<Move>) {
-    if let Some(m) = best_move {
-        println!("bestmove {}", m);
-    } else {
-        println!("bestmove 0000");
-    }
-}
-
-fn iterative_deepening(
-    game: &mut Game,
-    stop_flag: Arc<AtomicBool>,
-    max_depth: Option<usize>,
-    time_limit: Option<Duration>,
-) -> Option<Move>
-{
-    let mut last_move = None;
-    let start = Instant::now();
-    let mut last_pv_move = None;
-
-    for depth in 1.. {
-        if let Some(d) = max_depth {
-            if depth > d {
-                break;
-            }
-        }
-
-        let depth_start = Instant::now();
-        let (m, eval, nodes, pv, unwind) = game.find_best_move(
-            depth,
-            &stop_flag,
-            start,
-            time_limit,
-            last_pv_move
-        );
-        let elapsed = depth_start.elapsed();
-
-        // Update the best move only if there was NO unwind (the depth was searched fully)
-        if unwind {
-            break;
-        }
-
-        last_move = m;
-        last_pv_move = Some(pv[0]);
-        print_uci_info(depth, eval, nodes, pv, elapsed);
-
-        if let Some(limit) = time_limit {
-            if start.elapsed() >= limit {
-                break;
-            }
-        }
-    }
-
-    last_move
 }
 
 fn go_movetime(
