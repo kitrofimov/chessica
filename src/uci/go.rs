@@ -7,8 +7,10 @@ use crate::{
         base::player::Player,
         search::perft::*,
         engine::Engine,
+        game::Game,
+        searcher::Searcher,
     },
-    uci::{output::*, search_control::*},
+    uci::output::*, 
 };
 
 #[derive(Debug)]
@@ -66,7 +68,7 @@ fn parse_go_params(tokens: &[&str]) -> GoParams {
     params
 }
 
-fn compute_movetime(game: &mut Engine, wtime: usize, btime: usize, winc: usize, binc: usize) -> usize {
+fn compute_movetime(game: &mut Game, wtime: usize, btime: usize, winc: usize, binc: usize) -> usize {
     let (time, inc) = if game.position.player_to_move == Player::White {
         (wtime, winc)
     } else {
@@ -81,35 +83,35 @@ fn compute_movetime(game: &mut Engine, wtime: usize, btime: usize, winc: usize, 
 }
 
 pub fn go(
-    game: &mut Engine,
+    engine: &mut Engine,
     tokens: &[&str],
     stop_flag: &mut Arc<AtomicBool>,
     search_thread: &mut Option<JoinHandle<()>>,
 ) {
     let params = parse_go_params(tokens);
-    stop_search(stop_flag, search_thread);
+    Searcher::stop_search(stop_flag, search_thread);
 
     if let Some(perft_depth) = params.perft {  // non-UCI compliant
-        go_perft(game, perft_depth, stop_flag, search_thread);
+        go_perft(engine, perft_depth, stop_flag, search_thread);
     } else if let Some(movetime) = params.movetime {
-        go_movetime(game, Duration::from_millis(movetime.try_into().unwrap()), stop_flag, search_thread);
+        go_movetime(engine, Duration::from_millis(movetime.try_into().unwrap()), stop_flag, search_thread);
     } else if let Some(depth) = params.depth {
-        go_depth(game, depth, stop_flag, search_thread);
+        go_depth(engine, depth, stop_flag, search_thread);
     } else if params.infinite {
-        go_infinite(game, stop_flag, search_thread);
+        go_infinite(engine, stop_flag, search_thread);
     } else if params.wtime.is_some() && params.btime.is_some() {
         let wtime = params.wtime.unwrap();
         let btime = params.btime.unwrap();
         let winc = params.winc.unwrap_or(0);
         let binc = params.binc.unwrap_or(0);
-        let ms = compute_movetime(game, wtime, btime, winc, binc);
+        let ms = compute_movetime(&mut engine.game, wtime, btime, winc, binc);
         println!("info string will search for {} ms", ms);
-        go_movetime(game, Duration::from_millis(ms.try_into().unwrap()), stop_flag, search_thread);
+        go_movetime(engine, Duration::from_millis(ms.try_into().unwrap()), stop_flag, search_thread);
     }
 }
 
-fn go_perft(game: &mut Engine, depth: usize, stop_flag: &mut Arc<AtomicBool>, search_thread: &mut Option<JoinHandle<()>>) {
-    let mut game_clone = game.clone();
+fn go_perft(engine: &mut Engine, depth: usize, stop_flag: &mut Arc<AtomicBool>, search_thread: &mut Option<JoinHandle<()>>) {
+    let mut game_clone = engine.game.clone();
     let stop_flag_clone = Arc::clone(stop_flag);
 
     *search_thread = Some(thread::spawn(move || {
@@ -129,36 +131,39 @@ fn go_perft(game: &mut Engine, depth: usize, stop_flag: &mut Arc<AtomicBool>, se
 }
 
 fn go_movetime(
-    game: &mut Engine,
+    engine: &mut Engine,
     movetime: Duration,
     stop_flag: &mut Arc<AtomicBool>,
     search_thread: &mut Option<JoinHandle<()>>,
 ) {
-    let mut game_clone = game.clone();
+    let mut engine_clone = engine.clone();
     let stop_flag_clone = Arc::clone(stop_flag);
 
     *search_thread = Some(thread::spawn(move || {
-        let best_move = iterative_deepening(&mut game_clone, stop_flag_clone, None, Some(movetime));
+        let best_move = engine_clone.searcher
+            .iterative_deepening(&mut engine_clone.game, stop_flag_clone, None, Some(movetime));
         print_best_move(best_move);
     }));
 }
 
-fn go_depth(game: &mut Engine, depth: usize, stop_flag: &mut Arc<AtomicBool>, search_thread: &mut Option<JoinHandle<()>>) {
-    let mut game_clone = game.clone();
+fn go_depth(engine: &mut Engine, depth: usize, stop_flag: &mut Arc<AtomicBool>, search_thread: &mut Option<JoinHandle<()>>) {
+    let mut engine_clone = engine.clone();
     let stop_flag_clone = Arc::clone(stop_flag);
 
     *search_thread = Some(thread::spawn(move || {
-        let best_move = iterative_deepening(&mut game_clone, stop_flag_clone, Some(depth), None);
+        let best_move = engine_clone.searcher
+            .iterative_deepening(&mut engine_clone.game, stop_flag_clone, Some(depth), None);
         print_best_move(best_move);
     }));
 }
 
-fn go_infinite(game: &mut Engine, stop_flag: &mut Arc<AtomicBool>, search_thread: &mut Option<JoinHandle<()>>) {
-    let mut game_clone = game.clone();
+fn go_infinite(engine: &mut Engine, stop_flag: &mut Arc<AtomicBool>, search_thread: &mut Option<JoinHandle<()>>) {
+    let mut engine_clone = engine.clone();
     let stop_flag_clone = Arc::clone(stop_flag);
 
     *search_thread = Some(thread::spawn(move || {
-        let best_move = iterative_deepening(&mut game_clone, stop_flag_clone, None, None);
+        let best_move = engine_clone.searcher
+            .iterative_deepening(&mut engine_clone.game, stop_flag_clone, None, None);
         print_best_move(best_move);
     }));
 }

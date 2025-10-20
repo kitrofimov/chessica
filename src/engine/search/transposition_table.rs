@@ -22,6 +22,12 @@ pub struct TranspositionTable {
     table: Vec<Option<TTEntry>>,
 }
 
+impl Default for TranspositionTable {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl TranspositionTable {
     pub fn new() -> Self {
         let num_entries = (TRANSPOSITION_TABLE_MB_SIZE * 1024 * 1024) / std::mem::size_of::<TTEntry>();

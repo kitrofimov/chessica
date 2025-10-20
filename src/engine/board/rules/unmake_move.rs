@@ -93,7 +93,9 @@ mod tests {
 
     #[test]
     fn unmake_move_normal_move() {
-        let (mut pos, mut clock) = Position::from_fen("8/3r4/2k5/8/5R2/2K5/8/8 w - - 0 1").unwrap();
+        let parsed = Position::from_fen("8/3r4/2k5/8/5R2/2K5/8/8 w - - 0 1").unwrap();
+        let mut pos = parsed.position;
+        let mut clock = parsed.halfmove_clock;
         let save = pos;
         let m = Move::new(board::F4, board::F8, Piece::Rook, false);
         let undo = make_move(&mut pos, &m, &mut clock);
@@ -103,7 +105,9 @@ mod tests {
 
     #[test]
     fn unmake_move_capture() {
-        let (mut pos, mut clock) = Position::from_fen("2b5/5k2/8/4n3/8/6B1/1K6/8 w - - 0 1").unwrap();
+        let parsed = Position::from_fen("2b5/5k2/8/4n3/8/6B1/1K6/8 w - - 0 1").unwrap();
+        let mut pos = parsed.position;
+        let mut clock = parsed.halfmove_clock;
         let save = pos;
         let m = Move::new(board::G3, board::E5, Piece::Bishop, true);
         let undo = make_move(&mut pos, &m, &mut clock);
@@ -113,7 +117,9 @@ mod tests {
 
     #[test]
     fn unmake_move_promotion() {
-        let (mut pos, mut clock) = Position::from_fen("8/2P5/5k2/1K6/8/8/8/8 w - - 0 1").unwrap();
+        let parsed = Position::from_fen("8/2P5/5k2/1K6/8/8/8/8 w - - 0 1").unwrap();
+        let mut pos = parsed.position;
+        let mut clock = parsed.halfmove_clock;
         let save = pos;
         let m = Move::pawn(board::C7, board::C8, false, Some(Piece::Queen), false);
         let undo = make_move(&mut pos, &m, &mut clock);
@@ -123,7 +129,9 @@ mod tests {
 
     #[test]
     fn unmake_move_en_passant() {
-        let (mut pos, mut clock) = Position::from_fen("8/8/5k2/1KPp4/8/8/8/8 w - d6 0 1").unwrap();
+        let parsed = Position::from_fen("8/8/5k2/1KPp4/8/8/8/8 w - d6 0 1").unwrap();
+        let mut pos = parsed.position;
+        let mut clock = parsed.halfmove_clock;
         let save = pos;
         let m = Move::pawn(board::C5, board::D6, true, None, true);
         let undo = make_move(&mut pos, &m, &mut clock);
@@ -133,7 +141,9 @@ mod tests {
 
     #[test]
     fn unmake_move_castling() {
-        let (mut pos, mut clock) = Position::from_fen("5b2/1q1pp2p/5k2/8/6Q1/8/P4PPP/2B1K2R w K - 0 1").unwrap();
+        let parsed = Position::from_fen("5b2/1q1pp2p/5k2/8/6Q1/8/P4PPP/2B1K2R w K - 0 1").unwrap();
+        let mut pos = parsed.position;
+        let mut clock = parsed.halfmove_clock;
         let save = pos;
         let m = Move::castling(Player::White, CastlingSide::KingSide);
         let undo = make_move(&mut pos, &m, &mut clock);
@@ -143,7 +153,9 @@ mod tests {
 
     #[test]
     fn unmake_move_castling_rights_rook_move() {
-        let (mut pos, mut clock) = Position::from_fen("5b2/1q1pp2p/5k2/8/6Q1/8/P4PPP/2B1K2R w K - 0 1").unwrap();
+        let parsed = Position::from_fen("5b2/1q1pp2p/5k2/8/6Q1/8/P4PPP/2B1K2R w K - 0 1").unwrap();
+        let mut pos = parsed.position;
+        let mut clock = parsed.halfmove_clock;
         let save = pos;
         let m = Move::new(board::H1, board::F1, Piece::Rook, false);
         let undo = make_move(&mut pos, &m, &mut clock);
@@ -153,7 +165,9 @@ mod tests {
 
     #[test]
     fn unmake_move_castling_rights_king_move() {
-        let (mut pos, mut clock) = Position::from_fen("5b2/1q1pp2p/5k2/8/6Q1/8/P4PPP/2B1K2R w K - 0 1").unwrap();
+        let parsed = Position::from_fen("5b2/1q1pp2p/5k2/8/6Q1/8/P4PPP/2B1K2R w K - 0 1").unwrap();
+        let mut pos = parsed.position;
+        let mut clock = parsed.halfmove_clock;
         let save = pos;
         let m = Move::new(board::E1, board::D2, Piece::King, false);
         let undo = make_move(&mut pos, &m, &mut clock);
@@ -163,7 +177,9 @@ mod tests {
 
     #[test]
     fn unmake_move_castling_rights_rook_capture() {
-        let (mut pos, mut clock) = Position::from_fen("5b2/1q1pp2p/5k2/8/6Q1/6n1/P4PPP/2B1K2R b K - 0 1").unwrap();
+        let parsed = Position::from_fen("5b2/1q1pp2p/5k2/8/6Q1/6n1/P4PPP/2B1K2R b K - 0 1").unwrap();
+        let mut pos = parsed.position;
+        let mut clock = parsed.halfmove_clock;
         let save = pos;
         let m = Move::new(board::G3, board::H1, Piece::Knight, true);
         let undo = make_move(&mut pos, &m, &mut clock);
@@ -173,7 +189,9 @@ mod tests {
 
     #[test]
     fn unmake_move_castling_rights_clock() {
-        let (mut pos, mut clock) = Position::from_fen("8/8/1k1p4/2p5/6P1/7P/5K2/8 b - - 39 100").unwrap();
+        let parsed = Position::from_fen("8/8/1k1p4/2p5/6P1/7P/5K2/8 b - - 39 100").unwrap();
+        let mut pos = parsed.position;
+        let mut clock = parsed.halfmove_clock;
         let save = pos;
         let save_clock = clock;
         let m = Move::new(board::B6, board::B5, Piece::King, false);
