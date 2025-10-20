@@ -74,7 +74,7 @@ impl Game {
         false
     }
 
-    pub fn is_threefold_repetition(&self) -> bool {
+    fn is_threefold_repetition(&self) -> bool {
         let current_hash = self.position.zobrist_hash;
         let mut count = 1;
         for undo in self.undos.iter().rev() {
@@ -88,16 +88,22 @@ impl Game {
         false
     }
 
-    pub fn is_fifty_move_rule(&self) -> bool {
+    fn is_fifty_move_rule(&self) -> bool {
         self.halfmove_clock >= 100
     }
 
-    pub fn is_insufficient_material(&self) -> bool {
+    fn is_insufficient_material(&self) -> bool {
         is_insufficient_material(&self.position)
     }
 
     pub fn pseudo_moves(&self) -> Vec<Move> {
         pseudo_moves(&self.position)
+    }
+
+    pub fn is_draw(&self) -> bool {
+        self.is_threefold_repetition()
+            || self.is_fifty_move_rule()
+            || self.is_insufficient_material()
     }
 }
 

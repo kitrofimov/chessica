@@ -29,7 +29,8 @@ impl Searcher {
             }
 
             let depth_start = Instant::now();
-            let (m, eval, nodes, pv, unwind) = self.minimax_wrapper(
+            // let (m, eval, nodes, pv, unwind) = self.minimax_wrapper(
+            let result = self.minimax_wrapper(
                 game,
                 depth,
                 &stop_flag,
@@ -40,13 +41,13 @@ impl Searcher {
             let elapsed = depth_start.elapsed();
 
             // Update the best move only if there was NO unwind (the depth was searched fully)
-            if unwind {
+            if result.was_unwinded {
                 break;
             }
 
-            last_move = m;
-            last_pv_move = Some(pv[0]);
-            uci::print_uci_info(depth, eval, nodes, pv, elapsed);
+            last_move = result.best_move;
+            last_pv_move = Some(result.pv[0]);
+            uci::print_uci_info(depth, result.eval, result.nodes, result.pv, elapsed);
 
             if let Some(limit) = time_limit {
                 if start.elapsed() >= limit {

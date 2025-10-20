@@ -27,6 +27,7 @@ Hobby-level, bitboard-representation chess engine that **is in active developmen
 - [ ] Quiescence Search
 - [ ] Better evaluation function
 - [ ] Static Exchange Evaluation
+- [ ] Negamax?
 - [ ] Fix forced mate evaluation
 - [ ] Better time control (adaptive `moves_remaining` in `uci::compute_movetime`)
 - [ ] Opening book
