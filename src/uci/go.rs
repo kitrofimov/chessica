@@ -140,7 +140,7 @@ fn go_movetime(
 
     *search_thread = Some(thread::spawn(move || {
         let best_move = engine_clone.searcher
-            .iterative_deepening(&mut engine_clone.game, stop_flag_clone, None, Some(movetime));
+            .search(&mut engine_clone.game, stop_flag_clone, None, Some(movetime));
         print_best_move(best_move);
     }));
 }
@@ -151,7 +151,7 @@ fn go_depth(engine: &mut Engine, depth: usize, stop_flag: &mut Arc<AtomicBool>, 
 
     *search_thread = Some(thread::spawn(move || {
         let best_move = engine_clone.searcher
-            .iterative_deepening(&mut engine_clone.game, stop_flag_clone, Some(depth), None);
+            .search(&mut engine_clone.game, stop_flag_clone, Some(depth), None);
         print_best_move(best_move);
     }));
 }
@@ -162,7 +162,7 @@ fn go_infinite(engine: &mut Engine, stop_flag: &mut Arc<AtomicBool>, search_thre
 
     *search_thread = Some(thread::spawn(move || {
         let best_move = engine_clone.searcher
-            .iterative_deepening(&mut engine_clone.game, stop_flag_clone, None, None);
+            .search(&mut engine_clone.game, stop_flag_clone, None, None);
         print_best_move(best_move);
     }));
 }

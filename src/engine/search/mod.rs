@@ -5,3 +5,5 @@ pub mod transposition_table;
 pub mod perft;
 pub mod search_result;
 pub mod searcher;
+pub mod iterative_deepening;
+pub mod minimax;
