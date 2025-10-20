@@ -5,10 +5,9 @@ use std::time::Instant;
 use crate::{
     engine::{
         base::player::Player,
-        search::perft::*,
+        search::{searcher::Searcher, perft::*},
         engine::Engine,
-        game::Game,
-        searcher::Searcher,
+        board::game::Game,
     },
     uci::output::*, 
 };

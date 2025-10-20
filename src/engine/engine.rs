@@ -1,6 +1,6 @@
 use crate::{engine::{
-    game::Game,
-    searcher::Searcher,
+    board::game::Game,
+    search::searcher::Searcher,
 }};
 
 #[derive(Clone, Default)]

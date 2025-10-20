@@ -1,5 +1,5 @@
 use std::sync::{atomic::{AtomicBool, Ordering}, Arc};
-use crate::engine::game::Game;
+use crate::engine::board::game::Game;
 
 // Is equal to 18_446_744_073_709_551_615 (roughly 18 quintillion = 18 * 10^18)
 // Large enough to assume it is never going to arise naturally, because if so,

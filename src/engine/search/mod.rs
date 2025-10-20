@@ -4,3 +4,4 @@ pub mod search_state;
 pub mod transposition_table;
 pub mod perft;
 pub mod search_result;
+pub mod searcher;

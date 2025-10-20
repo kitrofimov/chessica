@@ -1,7 +1,7 @@
 use crate::constants::{AUTHOR, NAME};
 use crate::engine::{
     engine::Engine,
-    game::Game,
+    board::game::Game,
     board::position::FenParseError
 };
 

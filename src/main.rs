@@ -4,7 +4,7 @@ use std::thread::JoinHandle;
 
 use chessica::engine::{
     engine::Engine,
-    searcher::Searcher,
+    search::searcher::Searcher,
 };
 use chessica::uci;
 

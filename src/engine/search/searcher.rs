@@ -7,12 +7,14 @@ use std::{
 use crate::{constants::{move_ordering::MOVE_ORDERING_HISTORY_CAP, *}};
 use crate::uci;
 use crate::engine::{
-    game::Game,
     base::{
         _move::Move,
         player::Player,
     },
-    board::rules::checks::*,
+    board::{
+        game::Game,
+        rules::checks::*,
+    },
     search::{
         evaluate::evaluate,
         move_ordering::order_moves,
