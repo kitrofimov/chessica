@@ -6,6 +6,7 @@ use crate::engine::{
     base::_move::Move,
     board::game::Game,
     search::searcher::Searcher,
+    search::minimax::SearchContext,
 };
 use crate::uci;
 
@@ -29,14 +30,13 @@ impl Searcher {
             }
 
             let depth_start = Instant::now();
-            // let (m, eval, nodes, pv, unwind) = self.minimax_wrapper(
             let result = self.minimax_wrapper(
-                game,
-                depth,
-                &stop_flag,
-                start,
-                time_limit,
-                last_pv_move
+                game, depth, &SearchContext {
+                    stop_flag: stop_flag.clone(),
+                    start_time: start,
+                    time_limit,
+                    last_pv_move,
+                }
             );
             let elapsed = depth_start.elapsed();
 

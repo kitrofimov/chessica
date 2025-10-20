@@ -23,19 +23,20 @@ pub struct SearchContext {
     pub stop_flag: Arc<AtomicBool>,
     pub start_time: Instant,
     pub time_limit: Option<Duration>,
+    pub last_pv_move: Option<Move>,
 }
 
 struct SearchResultInternal {
     best_move: Option<Move>,
     eval: i32,
-    pv: Vec<Move>,  // REVERSED (leaf -> root)
+    pv: Vec<Move>,  // reversed: leaf -> root
     was_unwinded: bool,
 }
 
 pub struct SearchResult {
     pub best_move: Option<Move>,
     pub eval: i32,
-    pub pv: Vec<Move>,
+    pub pv: Vec<Move>,  // normal: root -> leaf
     pub was_unwinded: bool,
     pub nodes: u64,
 }
@@ -44,19 +45,16 @@ impl Searcher {
     fn minimax(
         &mut self,
         game: &mut Game,
-        last_pv_move: Option<Move>,
         depth: usize,
         mut alpha: i32,
         mut beta: i32,
         maximize: bool,
-        stop_flag: &Arc<AtomicBool>,
-        start_time: Instant,
-        time_limit: Option<Duration>,
         nodes: &mut u64,
+        ctx: &SearchContext,
     ) -> SearchResultInternal {
         *nodes += 1;
 
-        if self.should_stop(stop_flag, start_time, time_limit, *nodes) {
+        if self.should_stop(nodes, ctx) {
             return SearchResultInternal {
                 best_move: None,
                 eval: evaluate(&game.position),
@@ -87,25 +85,18 @@ impl Searcher {
             };
         }
 
-        self.search_moves(game, last_pv_move, depth, alpha, beta, maximize,
-                          stop_flag, start_time, time_limit, nodes)
+        self.search_moves(game, depth, alpha, beta, maximize, nodes, ctx)
     }
 
     // Check if stop_flag was set or time is over
-    fn should_stop(
-        &self,
-        stop_flag: &Arc<AtomicBool>,
-        start_time: Instant,
-        time_limit: Option<Duration>,
-        nodes: u64
-    ) -> bool {
+    fn should_stop(&self, nodes: &mut u64, ctx: &SearchContext) -> bool {
         // Check every 1024 nodes, because it is time-expensive
-        if nodes % 1024 == 0 {
-            if stop_flag.load(Ordering::Relaxed) {
+        if *nodes % 1024 == 0 {
+            if ctx.stop_flag.load(Ordering::Relaxed) {
                 return true;
             }
-            if let Some(tl) = time_limit {
-                if start_time.elapsed() >= tl {
+            if let Some(limit) = ctx.time_limit {
+                if ctx.start_time.elapsed() >= limit {
                     return true;
                 }
             }
@@ -154,15 +145,12 @@ impl Searcher {
     fn search_moves(
         &mut self,
         game: &mut Game,
-        last_pv_move: Option<Move>,
         depth: usize,
         mut alpha: i32,
         mut beta: i32,
         maximize: bool,
-        stop_flag: &Arc<AtomicBool>,
-        start_time: Instant,
-        time_limit: Option<Duration>,
         nodes: &mut u64,
+        ctx: &SearchContext,
     ) -> SearchResultInternal {
         let alpha_orig = alpha;
         let beta_orig = beta;
@@ -172,7 +160,7 @@ impl Searcher {
         let mut found_legal = false;
 
         let mut pseudo_moves = game.pseudo_moves();
-        self.order_moves(game, &mut pseudo_moves, depth, last_pv_move);
+        self.order_moves(game, &mut pseudo_moves, depth, ctx.last_pv_move);
 
         for m in pseudo_moves {
             if !game.try_to_make_move(&m) {
@@ -181,10 +169,7 @@ impl Searcher {
 
             found_legal = true;
 
-            let result = self.minimax(
-                game, Some(m), depth - 1, alpha, beta, !maximize,
-                stop_flag, start_time, time_limit, nodes
-            );
+            let result = self.minimax(game, depth - 1, alpha, beta, !maximize, nodes, ctx);
             let eval = result.eval;
             let mut child_pv = result.pv;
             let was_unwinded = result.was_unwinded;
@@ -281,21 +266,11 @@ impl Searcher {
         &mut self,
         game: &mut Game,
         depth: usize,
-        stop_flag: &Arc<AtomicBool>,
-        start_time: Instant,
-        time_limit: Option<Duration>,
-        last_pv_move: Option<Move>
+        ctx: &SearchContext,
     ) -> SearchResult {
-        let maximize = match game.position.player_to_move {
-            Player::White => true,
-            Player::Black => false,
-        };
+        let maximize = game.position.player_to_move == Player::White;
         let mut nodes = 0;
-
-        let result = self.minimax(
-            game, last_pv_move, depth, i32::MIN, i32::MAX, maximize,
-            stop_flag, start_time, time_limit, &mut nodes
-        );
+        let result = self.minimax(game, depth, i32::MIN, i32::MAX, maximize, &mut nodes, &ctx);
 
         SearchResult {
             best_move: result.best_move,
