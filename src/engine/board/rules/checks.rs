@@ -1,9 +1,8 @@
 use crate::constants::attacks;
 use crate::utility::lsb;
-use crate::core::{
-    position::*,
-    movegen::*,
-    player::Player,
+use crate::engine::{
+    base::player::Player,
+    board::{position::*, movegen::*},
 };
 
 pub fn is_square_attacked(pos: &Position, sq: usize, by_player: Player) -> bool {
@@ -44,7 +43,8 @@ mod tests {
 
     #[test]
     fn is_square_attacked_endgame() -> Result<(), FenParseError> {
-        let (pos, _) = Position::from_fen("8/3r1k2/8/4N3/1Q5q/8/2K5/8 b - - 0 1")?;
+        let parsed = Position::from_fen("8/3r1k2/8/4N3/1Q5q/8/2K5/8 b - - 0 1")?;
+        let pos = parsed.position;
         assert_eq!(is_square_attacked(&pos, 53, Player::White), true);
         assert_eq!(is_square_attacked(&pos, 51, Player::White), true);
         assert_eq!(is_square_attacked(&pos, 20, Player::White), false);
@@ -56,7 +56,8 @@ mod tests {
 
     #[test]
     fn is_king_in_check_midgame_1() -> Result<(), FenParseError> {
-        let (pos, _) = Position::from_fen("r1bqkb1r/ppp2ppp/5n2/1B4Q1/1n1P2N1/2N5/PPP2PPP/R1B1K2R b KQkq - 0 1")?;
+        let parsed = Position::from_fen("r1bqkb1r/ppp2ppp/5n2/1B4Q1/1n1P2N1/2N5/PPP2PPP/R1B1K2R b KQkq - 0 1")?;
+        let pos = parsed.position;
         assert_eq!(is_king_in_check(&pos, Player::White), false);
         assert_eq!(is_king_in_check(&pos, Player::Black), true);
         Ok(())
@@ -64,7 +65,8 @@ mod tests {
 
     #[test]
     fn is_king_in_check_midgame_2() -> Result<(), FenParseError> {
-        let (pos, _) = Position::from_fen("r1bqk1nr/pppp2pp/2n5/1B2pp2/1b1PP3/5N2/PPP2PPP/RNBQK2R w KQkq - 0 1")?;
+        let parsed = Position::from_fen("r1bqk1nr/pppp2pp/2n5/1B2pp2/1b1PP3/5N2/PPP2PPP/RNBQK2R w KQkq - 0 1")?;
+        let pos = parsed.position;
         assert_eq!(is_king_in_check(&pos, Player::White), true);
         assert_eq!(is_king_in_check(&pos, Player::Black), false);
         Ok(())
@@ -72,7 +74,8 @@ mod tests {
 
     #[test]
     fn is_king_in_check_endgame() -> Result<(), FenParseError> {
-        let (pos, _) = Position::from_fen("R6k/8/7K/8/8/1b6/8/8 b - - 0 1")?;
+        let parsed = Position::from_fen("R6k/8/7K/8/8/1b6/8/8 b - - 0 1")?;
+        let pos = parsed.position;
         assert_eq!(is_king_in_check(&pos, Player::White), false);
         assert_eq!(is_king_in_check(&pos, Player::Black), true);
         Ok(())

@@ -1,4 +1,4 @@
-use crate::{core::piece::Piece, utility::bit};
+use crate::{engine::base::piece::Piece, utility::bit};
 
 pub type Bitboard = u64;
 
@@ -18,6 +18,7 @@ impl BitOps for Bitboard {
 }
 
 
+/// Represents all pieces of a single player as bitboards
 #[derive(Default, Debug, Copy, Clone, PartialEq, Eq)]
 pub struct BitboardSet {
     pub all:     Bitboard,

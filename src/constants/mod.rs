@@ -1,8 +1,9 @@
 pub mod magics;
 pub mod board;
 pub mod attacks;
-pub mod masks;
+pub mod blockers;
 pub mod zobrist;
+pub mod move_ordering;
 
 pub const NAME: &str = "chess-engine";
 pub const AUTHOR: &str = "Kirill Trofimov";
@@ -13,3 +14,5 @@ pub const MOVE_LIST_CAPACITY: usize = 256;
 
 pub const CHECKMATE_EVAL: i32 = 2_000_000_000;
 pub const DRAW_EVAL: i32 = 0;
+
+pub const TRANSPOSITION_TABLE_MB_SIZE: usize = 64;

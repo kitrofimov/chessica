@@ -1,7 +1,7 @@
 use crate::utility::{is_square_color_white, lsb};
-use crate::core::{
-    position::*,
-    piece::Piece,
+use crate::engine::{
+    base::piece::Piece,
+    board::position::*,
 };
 
 pub fn is_insufficient_material(pos: &Position) -> bool {
@@ -49,37 +49,43 @@ mod tests {
 
     #[test]
     fn test_insufficient_material_king_vs_king() {
-        let (pos, _) = Position::from_fen("8/8/8/8/8/8/8/K2k4 w - - 0 1").unwrap();
+        let parsed = Position::from_fen("8/8/8/8/8/8/8/K2k4 w - - 0 1").unwrap();
+        let pos = parsed.position;
         assert_eq!(is_insufficient_material(&pos), true);
     }
 
     #[test]
     fn test_insufficient_material_king_and_bishop_vs_king() {
-        let (pos, _) = Position::from_fen("8/8/8/1K2k3/8/8/5B2/8 w - - 0 1").unwrap();
+        let parsed = Position::from_fen("8/8/8/1K2k3/8/8/5B2/8 w - - 0 1").unwrap();
+        let pos = parsed.position;
         assert_eq!(is_insufficient_material(&pos), true);
     }
 
     #[test]
     fn test_insufficient_material_king_and_knight_vs_king() {
-        let (pos, _) = Position::from_fen("8/8/5N2/2K5/8/6k1/8/8 w - - 0 1").unwrap();
+        let parsed = Position::from_fen("8/8/5N2/2K5/8/6k1/8/8 w - - 0 1").unwrap();
+        let pos = parsed.position;
         assert_eq!(is_insufficient_material(&pos), true);
     }
 
     #[test]
     fn test_insufficient_material_king_bishop_vs_king_bishop_same_color() {
-        let (pos, _) = Position::from_fen("8/8/3k2b1/8/8/1K3B2/8/8 w - - 0 1").unwrap();
+        let parsed = Position::from_fen("8/8/3k2b1/8/8/1K3B2/8/8 w - - 0 1").unwrap();
+        let pos = parsed.position;
         assert_eq!(is_insufficient_material(&pos), true);
     }
 
     #[test]
     fn test_sufficient_material_king_bishop_vs_king_bishop_opposite_color() {
-        let (pos, _) = Position::from_fen("8/6b1/3k4/8/8/1K3B2/8/8 w - - 0 1").unwrap();
+        let parsed = Position::from_fen("8/6b1/3k4/8/8/1K3B2/8/8 w - - 0 1").unwrap();
+        let pos = parsed.position;
         assert_eq!(is_insufficient_material(&pos), false);
     }
 
     #[test]
     fn test_sufficient_material_pawn() {
-        let (pos, _) = Position::from_fen("8/8/3k4/8/8/4P3/1K6/8 w - - 0 1").unwrap();
+        let parsed = Position::from_fen("8/8/3k4/8/8/4P3/1K6/8 w - - 0 1").unwrap();
+        let pos = parsed.position;
         assert_eq!(is_insufficient_material(&pos), false);
     }
 }

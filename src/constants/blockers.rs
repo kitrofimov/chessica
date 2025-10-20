@@ -1,3 +1,5 @@
+/// Precomputed blocker masks for sliding pieces (rooks and bishops)
+
 use super::board::*;
 use crate::utility::bit;
 

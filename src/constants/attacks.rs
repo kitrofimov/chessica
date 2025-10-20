@@ -1,3 +1,5 @@
+/// Precomputed attack bitboards for pawns, knights, and kings
+
 use super::board::*;
 
 const fn generate_knight_attack(square: u8) -> u64 {

@@ -21,11 +21,13 @@ Hobby-level, bitboard-representation chess engine that **is in active developmen
 - [x] Alpha-beta pruned minimax search
 - [x] Zobrist hashing
 - [x] (A little bit of) optimization
-- [ ] Move ordering
+- [x] Move ordering
+- [x] Transposition table
+    - [x] Add TT move to Move Ordering
 - [ ] Quiescence Search
-- [ ] Transposition table
 - [ ] Better evaluation function
 - [ ] Static Exchange Evaluation
+- [ ] Negamax?
 - [ ] Fix forced mate evaluation
 - [ ] Better time control (adaptive `moves_remaining` in `uci::compute_movetime`)
 - [ ] Opening book

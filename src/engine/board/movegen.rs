@@ -1,13 +1,18 @@
-use crate::{core::{
-    chess_move::{CastlingSide::*, *},
-    piece::Piece,
-    player::Player,
-    position::*,
-    rules::checks::is_square_attacked,
+use crate::{engine::{
+    base::{
+        _move::{CastlingSide::{self, *}, Move},
+        piece::Piece,
+        player::Player,
+    },
+    board::{
+        position::*,
+        rules::checks::is_square_attacked,
+    },
 }};
 use crate::utility::*;
-use crate::constants::{board::*, attacks::*, magics::*, masks::*, *};
+use crate::constants::{board::*, attacks::*, magics::*, blockers::*, *};
 
+/// Generate pseudo moves for a position (not checking for legality)
 pub fn pseudo_moves(pos: &Position) -> Vec<Move> {
     let mut moves = Vec::with_capacity(MOVE_LIST_CAPACITY);
     pseudo_pawn_moves(pos, &mut moves);
@@ -227,7 +232,8 @@ mod tests {
 
     #[test]
     fn pseudo_pawn_moves_endgame() -> Result<(), FenParseError> {
-        let (pos, _) = Position::from_fen("8/p1pp3p/BN6/3R4/1k2K3/8/1p3pp1/2Q1B3 b - - 0 1")?;
+        let parsed = Position::from_fen("8/p1pp3p/BN6/3R4/1k2K3/8/1p3pp1/2Q1B3 b - - 0 1")?;
+        let pos = parsed.position;
         let mut moves = Vec::new();
         pseudo_pawn_moves(&pos, &mut moves);
 
@@ -272,7 +278,8 @@ mod tests {
 
     #[test]
     fn pseudo_pawn_moves_en_passant() -> Result<(), FenParseError> {
-        let (pos, _) = Position::from_fen("8/6k1/8/1pP1Pp2/8/8/5K2/8 w - b6 0 1")?;
+        let parsed = Position::from_fen("8/6k1/8/1pP1Pp2/8/8/5K2/8 w - b6 0 1")?;
+        let pos = parsed.position;
         let mut moves = Vec::new();
         pseudo_pawn_moves(&pos, &mut moves);
 
@@ -306,7 +313,8 @@ mod tests {
 
     #[test]
     fn pseudo_knight_moves_endgame() -> Result<(), FenParseError> {
-        let (pos, _) = Position::from_fen("8/3nk3/1N3R2/3n2n1/3N4/8/3K1N2/1r6 w - - 0 1")?;
+        let parsed = Position::from_fen("8/3nk3/1N3R2/3n2n1/3N4/8/3K1N2/1r6 w - - 0 1")?;
+        let pos = parsed.position;
         let mut moves = Vec::new();
         pseudo_moves_for_piece(&pos, Piece::Knight, &mut moves);
 
@@ -348,7 +356,8 @@ mod tests {
 
     #[test]
     fn pseudo_king_moves_endgame() -> Result<(), FenParseError> {
-        let (pos, _) = Position::from_fen("8/8/8/8/7P/6K1/1r6/k7 w - - 0 1")?;
+        let parsed = Position::from_fen("8/8/8/8/7P/6K1/1r6/k7 w - - 0 1")?;
+        let pos = parsed.position;
         let mut moves = Vec::new();
         pseudo_moves_for_piece(&pos, Piece::King, &mut moves);
 
@@ -377,7 +386,8 @@ mod tests {
 
     #[test]
     fn pseudo_rook_moves_endgame() -> Result<(), FenParseError> {
-        let (pos, _) = Position::from_fen("8/3k4/8/R3p3/6P1/1P6/3K2R1/8 w - - 0 1")?;
+        let parsed = Position::from_fen("8/3k4/8/R3p3/6P1/1P6/3K2R1/8 w - - 0 1")?;
+        let pos = parsed.position;
         let mut moves = Vec::new();
         pseudo_moves_for_piece(&pos, Piece::Rook, &mut moves);
 
@@ -415,7 +425,8 @@ mod tests {
 
     #[test]
     fn pseudo_bishop_moves_endgame() -> Result<(), FenParseError> {
-        let (pos, _) = Position::from_fen("8/8/8/3b4/5P1b/1k6/3b3K/b7 b - - 0 1")?;
+        let parsed = Position::from_fen("8/8/8/3b4/5P1b/1k6/3b3K/b7 b - - 0 1")?;
+        let pos = parsed.position;
         let mut moves = Vec::new();
         pseudo_moves_for_piece(&pos, Piece::Bishop, &mut moves);
 
@@ -461,7 +472,8 @@ mod tests {
 
     #[test]
     fn pseudo_bishop_moves_blocking_friendly() -> Result<(), FenParseError> {
-        let (pos, _) = Position::from_fen("1k3K2/8/1P3P2/8/3B4/8/1P3P2/8 w - - 0 1")?;
+        let parsed = Position::from_fen("1k3K2/8/1P3P2/8/3B4/8/1P3P2/8 w - - 0 1")?;
+        let pos = parsed.position;
         let mut moves = Vec::new();
         pseudo_moves_for_piece(&pos, Piece::Bishop, &mut moves);
 
@@ -479,7 +491,8 @@ mod tests {
 
     #[test]
     fn pseudo_bishop_moves_blocking_hostile() -> Result<(), FenParseError> {
-        let (pos, _) = Position::from_fen("1k3K2/8/1p3p2/8/3B4/8/1p3p2/8 w - - 0 1")?;
+        let parsed = Position::from_fen("1k3K2/8/1p3p2/8/3B4/8/1p3p2/8 w - - 0 1")?;
+        let pos = parsed.position;
         let mut moves = Vec::new();
         pseudo_moves_for_piece(&pos, Piece::Bishop, &mut moves);
 
@@ -509,7 +522,8 @@ mod tests {
 
     #[test]
     fn pseudo_queen_moves_endgame() -> Result<(), FenParseError> {
-        let (pos, _) = Position::from_fen("8/k3b3/2r5/8/4Q1N1/8/2K5/8 w - - 0 1")?;
+        let parsed = Position::from_fen("8/k3b3/2r5/8/4Q1N1/8/2K5/8 w - - 0 1")?;
+        let pos = parsed.position;
         let mut moves = Vec::new();
         pseudo_moves_for_piece(&pos, Piece::Queen, &mut moves);
 
@@ -543,7 +557,8 @@ mod tests {
 
     #[test]
     fn pseudo_castling_moves_midgame1() -> Result<(), FenParseError> {
-        let (pos, _) = Position::from_fen("rnb1k1nr/pppp1ppp/3b1q2/4p3/2BPP3/2P2N2/PP3PPP/RNBQK2R w KQkq - 0 1")?;
+        let parsed = Position::from_fen("rnb1k1nr/pppp1ppp/3b1q2/4p3/2BPP3/2P2N2/PP3PPP/RNBQK2R w KQkq - 0 1")?;
+        let pos = parsed.position;
         let mut moves = Vec::new();
         pseudo_castling_moves(&pos, &mut moves);
         assert_eq!(moves.len(), 1);
@@ -553,7 +568,8 @@ mod tests {
 
     #[test]
     fn pseudo_castling_moves_midgame2() -> Result<(), FenParseError> {
-        let (pos, _) = Position::from_fen("r3kbnr/ppp2ppp/2np2b1/4p2q/4P3/5PP1/PPPP3P/RNBQKBNR b KQkq - 0 1")?;
+        let parsed = Position::from_fen("r3kbnr/ppp2ppp/2np2b1/4p2q/4P3/5PP1/PPPP3P/RNBQKBNR b KQkq - 0 1")?;
+        let pos = parsed.position;
         let mut moves = Vec::new();
         pseudo_castling_moves(&pos, &mut moves);
         assert_eq!(moves.len(), 1);
@@ -563,7 +579,8 @@ mod tests {
 
     #[test]
     fn pseudo_castling_moves_should_generate_nothing() -> Result<(), FenParseError> {
-        let (pos, _) = Position::from_fen("r3kbnr/ppp2ppp/2np2b1/4p2q/4P3/3P1PPB/PPP4P/RNBQK1NR b KQkq - 0 1")?;
+        let parsed = Position::from_fen("r3kbnr/ppp2ppp/2np2b1/4p2q/4P3/3P1PPB/PPP4P/RNBQK1NR b KQkq - 0 1")?;
+        let pos = parsed.position;
         let mut moves = Vec::new();
         pseudo_castling_moves(&pos, &mut moves);
         assert_eq!(moves.len(), 0);

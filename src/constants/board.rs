@@ -1,4 +1,5 @@
-// Assuming [Little-Endian Rank-File Mapping](https://www.chessprogramming.org/Square_Mapping_Considerations#Little-Endian_Rank-File_Mapping)
+/// Precomputed bitboards for representing ranks, files, and squares
+/// Assuming [Little-Endian Rank-File Mapping](https://www.chessprogramming.org/Square_Mapping_Considerations#Little-Endian_Rank-File_Mapping)
 
 pub const RANK: [u64; 8+1] = [
     0,                  // Rank 0 (unused, for convenience)

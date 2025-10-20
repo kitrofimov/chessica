@@ -2,11 +2,15 @@ use std::io::{self, BufRead, Write};
 use std::sync::{Arc, atomic::AtomicBool};
 use std::thread::JoinHandle;
 
-use chess_engine::{core::game::Game, uci};
+use chessica::engine::{
+    engine::Engine,
+    search::searcher::Searcher,
+};
+use chessica::uci;
 
 fn main() {
     let stdin = io::stdin();
-    let mut game = Game::default();
+    let mut engine = Engine::default();
 
     let mut stop_flag = Arc::new(AtomicBool::new(false));
     let mut search_thread: Option<JoinHandle<()>> = None;
@@ -21,15 +25,15 @@ fn main() {
         match tokens[0] {
             "uci"        => uci::uci(),
             "isready"    => uci::isready(),
-            "ucinewgame" => uci::ucinewgame(&mut game),
-            "position"   => uci::position(&mut game, &tokens),
-            "go"         => uci::go(&mut game, &tokens, &mut stop_flag, &mut search_thread),
-            "stop"       => uci::stop_search(&mut stop_flag, &mut search_thread),
+            "ucinewgame" => uci::ucinewgame(&mut engine),
+            "position"   => uci::position(&mut engine, &tokens),
+            "go"         => uci::go(&mut engine, &tokens, &mut stop_flag, &mut search_thread),
+            "stop"       => Searcher::stop_search(&mut stop_flag, &mut search_thread),
             "quit" => {
-                uci::stop_search(&mut stop_flag, &mut search_thread);
+                Searcher::stop_search(&mut stop_flag, &mut search_thread);
                 break;
             }
-            "d" => println!("{}", game.position),
+            "d" => println!("{}", engine.game.position),
             _   => println!("info string Unknown command!")
         }
 
