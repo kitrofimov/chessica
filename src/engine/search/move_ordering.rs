@@ -13,8 +13,8 @@ impl Searcher {
         let hash_move = self.transposition_table
             .probe(game.position.zobrist_hash)
             .and_then(|e| e.best_move);
-        let killers = &self.search_state.killer_moves[depth];
-        let history = &self.search_state.history;
+        let killers = &self.killer_moves[depth];
+        let history = &self.history;
 
         moves.sort_by_key(|m| {
             if Some(*m) == hash_move {

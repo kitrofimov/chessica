@@ -2,24 +2,30 @@ use std::{
     sync::{atomic::{AtomicBool, Ordering}, Arc},
     thread::JoinHandle,
 };
+use crate::constants::move_ordering::KILLER_MOVES_PLY_DEPTH;
 use crate::engine::{
-    search::{
-        transposition_table::*,
-        search_state::SearchState,
-    },
+    base::_move::Move,
+    search::transposition_table::*,
 };
 
-#[derive(Clone, Default)]
+#[derive(Clone)]
 pub struct Searcher {
     pub transposition_table: TranspositionTable,
-    pub search_state: SearchState,
+    pub history: [[i32; 64]; 64],  // [from][to]
+    pub killer_moves: [[Option<Move>; 2]; KILLER_MOVES_PLY_DEPTH],
+}
+
+impl Default for Searcher {
+    fn default() -> Self {
+        Searcher {
+            transposition_table: TranspositionTable::default(),
+            history: [[0; 64]; 64],
+            killer_moves: [[None; 2]; KILLER_MOVES_PLY_DEPTH],
+        }
+    }
 }
 
 impl Searcher {
-    pub fn new() -> Self {
-        Self::default()
-    }
-
     pub fn stop_search(
         stop_flag: &mut Arc<AtomicBool>,
         search_thread: &mut Option<JoinHandle<()>>,

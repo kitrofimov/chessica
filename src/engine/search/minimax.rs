@@ -135,7 +135,7 @@ impl Searcher {
                 // TODO: count number of cutoffs globally
                 // to check if move ordering is useful
                 if !m.is_capture() && !m.is_promotion() {  // Filling killer moves
-                    let killers = &mut self.search_state.killer_moves[depth];
+                    let killers = &mut self.killer_moves[depth];
                     if Some(*m) != killers[0] {
                         killers[1] = killers[0];
                         killers[0] = Some(*m);
@@ -143,7 +143,7 @@ impl Searcher {
                 }
 
                 // Update history heuristic
-                let history_entry = &mut self.search_state.history[m.from as usize][m.to as usize];
+                let history_entry = &mut self.history[m.from as usize][m.to as usize];
                 *history_entry = history_entry.saturating_add((depth * depth) as i32).clamp(0, MOVE_ORDERING_HISTORY_CAP) as i32;
 
                 break;
