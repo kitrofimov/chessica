@@ -3,6 +3,7 @@ use crate::{engine::{
     search::searcher::Searcher,
 }};
 
+/// Main structure containing the game state and searcher
 #[derive(Clone, Default)]
 pub struct Engine {
     pub game: Game,

@@ -9,7 +9,7 @@ use crate::engine::{
     board::zobrist::zobrist_hash,
 };
 
-/// Uses [Little-Endian Rank-File Mapping](https://www.chessprogramming.org/Square_Mapping_Considerations#Little-Endian_Rank-File_Mapping)
+/// Represents a single chess position using Little-Endian Rank-File (LERF) Mapping
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub struct Position {
     pub w: BitboardSet,

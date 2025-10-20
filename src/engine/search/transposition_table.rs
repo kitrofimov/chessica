@@ -17,6 +17,7 @@ pub enum NodeType {
     UpperBound,
 }
 
+/// Caches previously computed positions
 #[derive(Clone)]
 pub struct TranspositionTable {
     table: Vec<Option<TTEntry>>,

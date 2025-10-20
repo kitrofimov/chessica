@@ -261,7 +261,7 @@ impl Searcher {
             .clamp(0, MOVE_ORDERING_HISTORY_CAP);
     }
 
-    // Wrapper that helps set initial parameters for minimax recursion
+    /// Wrapper that helps set initial parameters for minimax recursion
     pub fn minimax_wrapper(
         &mut self,
         game: &mut Game,

@@ -1,3 +1,5 @@
+/// Constants related to move ordering heuristics
+
 pub const MOVE_ORDERING_HASH_MOVE:       i32 = 9_000;
 pub const MOVE_ORDERING_LAST_PV_MOVE:    i32 = 5_000;
 pub const MOVE_ORDERING_WINNING_CAPTURE: i32 = 3_000;

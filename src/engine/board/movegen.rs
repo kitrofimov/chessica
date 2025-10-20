@@ -12,6 +12,7 @@ use crate::{engine::{
 use crate::utility::*;
 use crate::constants::{board::*, attacks::*, magics::*, blockers::*, *};
 
+/// Generate pseudo moves for a position (not checking for legality)
 pub fn pseudo_moves(pos: &Position) -> Vec<Move> {
     let mut moves = Vec::with_capacity(MOVE_LIST_CAPACITY);
     pseudo_pawn_moves(pos, &mut moves);

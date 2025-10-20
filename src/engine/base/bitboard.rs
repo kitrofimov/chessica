@@ -18,6 +18,7 @@ impl BitOps for Bitboard {
 }
 
 
+/// Represents all pieces of a single player as bitboards
 #[derive(Default, Debug, Copy, Clone, PartialEq, Eq)]
 pub struct BitboardSet {
     pub all:     Bitboard,

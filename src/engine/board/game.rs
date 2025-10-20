@@ -11,6 +11,7 @@ use crate::engine::{
     base::_move::Move,
 };
 
+/// Represents a chess game fully, including move history and halfmove clock
 #[derive(Clone)]
 pub struct Game {
     pub position: Position,

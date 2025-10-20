@@ -8,8 +8,10 @@ use crate::engine::{
     search::transposition_table::*,
 };
 
+/// Structure orchestrating the search process
 #[derive(Clone)]
 pub struct Searcher {
+    // Move ordering heuristics
     pub transposition_table: TranspositionTable,
     pub history: [[i32; 64]; 64],  // [from][to]
     pub killer_moves: [[Option<Move>; 2]; KILLER_MOVES_PLY_DEPTH],

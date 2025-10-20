@@ -1,33 +1,40 @@
+/// Returns a bitboard with a bit set at the given square index
 pub const fn bit(sq: u8) -> u64 {
     1u64 << sq
 }
 
-// List of squares to bitboard
+/// Returns a bitboard with bits set at the given square indices
 pub fn sq_to_bb(lst: &[u8]) -> u64 {
     lst.iter().fold(0u64, |s, &a| s | bit(a))
 }
 
+/// Returns the index (0–63) of the least significant set bit in the bitboard
 pub fn lsb(bitboard: u64) -> u8 {
     bitboard.trailing_zeros() as u8
 }
 
+/// Removes and returns the index of the least significant 1 bit in the bitboard
 pub fn pop_lsb(bitboard: &mut u64) -> u8 {
     let result = bitboard.trailing_zeros() as u8;
     *bitboard &= *bitboard - 1;
     result
 }
 
+/// Returns `true` if the given square index corresponds to a white-colored
+/// square on a standard chessboard (a1 is dark)
 pub fn is_square_color_white(sq: u8) -> bool {
     let (file, rank) = square_idx_to_coordinates(sq);
     (file + rank) % 2 == 0
 }
 
+/// Converts a square index into algebraic notation, e.g. `0 -> "a1"`, `63 -> "h8"`
 pub fn square_idx_to_string(sq: u8) -> String {
     let file = sq % 8;
     let rank = sq / 8;
     format!("{}{}", (file + b'a') as char, rank + 1)
 }
 
+/// Converts an algebraic notation string (like `"a1"`) into an index
 pub fn square_string_to_idx(sq: &str) -> Option<u8> {
     if sq.len() != 2 {
         return None;
@@ -40,12 +47,15 @@ pub fn square_string_to_idx(sq: &str) -> Option<u8> {
     Some(rank * 8 + file)
 }
 
+/// Converts a square index into `(file, rank)` coordinates
 pub fn square_idx_to_coordinates(sq: u8) -> (u8, u8) {
     let file = sq % 8;
     let rank = sq / 8;
     (file, rank)
 }
 
+/// Performs a bitwise shift on a bitboard, positive offset is left shift,
+/// negative offset is right shift
 pub fn signed_shift(bb: u64, offset: i8) -> u64 {
     if offset >= 0 {
         bb << offset
@@ -54,6 +64,7 @@ pub fn signed_shift(bb: u64, offset: i8) -> u64 {
     }
 }
 
+/// Prints a human-readable representation of a bitboard to stdout
 pub fn print_bitboard(bb: u64) {
     for rank in (0..8).rev() {
         print!("{} ", rank + 1);
