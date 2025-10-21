@@ -9,7 +9,7 @@ pub type ZobristHash = u64;
 pub fn zobrist_hash(pos: &Position) -> u64 {
     let mut hash: u64 = 0;
     for sq_idx in 0..64 {
-        let what = pos.what(sq_idx);
+        let what = pos.piece_at(sq_idx);
 
         if let Some((player, piece)) = what {
             let piece = piece.index();

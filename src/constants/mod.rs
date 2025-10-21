@@ -16,3 +16,4 @@ pub const CHECKMATE_EVAL: i32 = 2_000_000_000;
 pub const DRAW_EVAL: i32 = 0;
 
 pub const TRANSPOSITION_TABLE_MB_SIZE: usize = 64;
+pub const SEE_EXCHANGE_MAX_DEPTH: usize = 32;

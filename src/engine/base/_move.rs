@@ -102,11 +102,19 @@ impl Move {
             score += MVV_LVA_PROMOTION_BONUS;
         }
         if self.is_capture() {
-            let victim = position.what(self.to).map(|(_, piece)| piece.value()).unwrap();
+            let victim = position.piece_at(self.to).map(|(_, piece)| piece.value()).unwrap();
             let attacker = self.piece.value();
             score += victim - attacker;
         }
         score
+    }
+
+    pub fn en_passant_sq_to_captured_sq(&self, player_who_moved: Player) -> u8 {
+        if player_who_moved == Player::White {
+            self.to - 8
+        } else {
+            self.to + 8
+        }
     }
 }
 

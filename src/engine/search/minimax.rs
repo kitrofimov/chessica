@@ -8,10 +8,7 @@ use crate::engine::{
         _move::Move,
         player::Player,
     },
-    board::{
-        game::Game,
-        rules::checks::*,
-    },
+    board::game::Game,
     search::{
         evaluate::*,
         transposition_table::*,
@@ -279,7 +276,7 @@ impl Searcher {
     }
 
     fn handle_no_legal_moves(&self, game: &Game, depth: usize) -> SearchResultInternal {
-        let eval = if is_king_in_check(&game.position, game.position.player_to_move) {
+        let eval = if game.position.is_king_in_check(game.position.player_to_move) {
             match game.position.player_to_move {
                 Player::White => -CHECKMATE_EVAL + depth as i32,
                 Player::Black => CHECKMATE_EVAL - depth as i32,

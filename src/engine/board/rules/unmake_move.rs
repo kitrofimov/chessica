@@ -14,35 +14,37 @@ pub struct UndoData {
     pub zobrist_hash: u64,
 }
 
-pub fn unmake_move(pos: &mut Position, undo: UndoData, halfmove_clock: &mut usize) {
-    let who_moved = pos.player_to_move.opposite();
-    let m = undo.move_to_undo;
+impl Position {
+    pub fn unmake_move(&mut self, undo: UndoData, halfmove_clock: &mut usize) {
+        let who_moved = self.player_to_move.opposite();
+        let m = undo.move_to_undo;
 
-    pos.castling = undo.castling;
-    pos.en_passant_square = undo.en_passant_square;
-    pos.zobrist_hash = undo.zobrist_hash;
-    *halfmove_clock = undo.halfmove_clock;
-    pos.player_to_move = who_moved;
+        self.castling = undo.castling;
+        self.en_passant_square = undo.en_passant_square;
+        self.zobrist_hash = undo.zobrist_hash;
+        *halfmove_clock = undo.halfmove_clock;
+        self.player_to_move = who_moved;
 
-    let (friendly, hostile) = pos.perspective_mut(who_moved);
+        let (friendly, hostile) = self.perspective_mut(who_moved);
 
-    if m.is_castling() {
-        undo_castling(pos, &m, who_moved);
-    } else {
-        if m.promotion.is_some() {
-            undo_promotion(friendly, &m);
+        if m.is_castling() {
+            undo_castling(self, &m, who_moved);
         } else {
-            undo_non_promotion_move(friendly, &m);
+            if m.promotion.is_some() {
+                undo_promotion(friendly, &m);
+            } else {
+                undo_non_promotion_move(friendly, &m);
+            }
+
+            if m.en_passant {
+                undo_en_passant(hostile, &m, who_moved);
+            } else if m.capture {
+                undo_capture(hostile, &m, undo.captured_piece.unwrap());
+            }
         }
 
-        if m.en_passant {
-            undo_en_passant(hostile, &m, who_moved);
-        } else if m.capture {
-            undo_capture(hostile, &m, undo.captured_piece.unwrap());
-        }
+        self.update();
     }
-
-    pos.update();
 }
 
 fn undo_castling(pos: &mut Position, m: &Move, who: Player) {
@@ -89,7 +91,6 @@ fn undo_en_passant(hostile: &mut BitboardSet, m: &Move, who: Player) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::engine::board::rules::make_move::make_move;
 
     #[test]
     fn unmake_move_normal_move() {
@@ -98,8 +99,8 @@ mod tests {
         let mut clock = parsed.halfmove_clock;
         let save = pos;
         let m = Move::new(board::F4, board::F8, Piece::Rook, false);
-        let undo = make_move(&mut pos, &m, &mut clock);
-        unmake_move(&mut pos, undo, &mut clock);
+        let undo = pos.make_move(&m, &mut clock);
+        pos.unmake_move(undo, &mut clock);
         assert_eq!(pos, save);
     }
 
@@ -110,8 +111,8 @@ mod tests {
         let mut clock = parsed.halfmove_clock;
         let save = pos;
         let m = Move::new(board::G3, board::E5, Piece::Bishop, true);
-        let undo = make_move(&mut pos, &m, &mut clock);
-        unmake_move(&mut pos, undo, &mut clock);
+        let undo = pos.make_move(&m, &mut clock);
+        pos.unmake_move(undo, &mut clock);
         assert_eq!(pos, save);
     }
 
@@ -122,8 +123,8 @@ mod tests {
         let mut clock = parsed.halfmove_clock;
         let save = pos;
         let m = Move::pawn(board::C7, board::C8, false, Some(Piece::Queen), false);
-        let undo = make_move(&mut pos, &m, &mut clock);
-        unmake_move(&mut pos, undo, &mut clock);
+        let undo = pos.make_move(&m, &mut clock);
+        pos.unmake_move(undo, &mut clock);
         assert_eq!(pos, save);
     }
 
@@ -134,8 +135,8 @@ mod tests {
         let mut clock = parsed.halfmove_clock;
         let save = pos;
         let m = Move::pawn(board::C5, board::D6, true, None, true);
-        let undo = make_move(&mut pos, &m, &mut clock);
-        unmake_move(&mut pos, undo, &mut clock);
+        let undo = pos.make_move(&m, &mut clock);
+        pos.unmake_move(undo, &mut clock);
         assert_eq!(pos, save);
     }
 
@@ -146,8 +147,8 @@ mod tests {
         let mut clock = parsed.halfmove_clock;
         let save = pos;
         let m = Move::castling(Player::White, CastlingSide::KingSide);
-        let undo = make_move(&mut pos, &m, &mut clock);
-        unmake_move(&mut pos, undo, &mut clock);
+        let undo = pos.make_move(&m, &mut clock);
+        pos.unmake_move(undo, &mut clock);
         assert_eq!(pos, save);
     }
 
@@ -158,8 +159,8 @@ mod tests {
         let mut clock = parsed.halfmove_clock;
         let save = pos;
         let m = Move::new(board::H1, board::F1, Piece::Rook, false);
-        let undo = make_move(&mut pos, &m, &mut clock);
-        unmake_move(&mut pos, undo, &mut clock);
+        let undo = pos.make_move(&m, &mut clock);
+        pos.unmake_move(undo, &mut clock);
         assert_eq!(pos, save);
     }
 
@@ -170,8 +171,8 @@ mod tests {
         let mut clock = parsed.halfmove_clock;
         let save = pos;
         let m = Move::new(board::E1, board::D2, Piece::King, false);
-        let undo = make_move(&mut pos, &m, &mut clock);
-        unmake_move(&mut pos, undo, &mut clock);
+        let undo = pos.make_move(&m, &mut clock);
+        pos.unmake_move(undo, &mut clock);
         assert_eq!(pos, save);
     }
 
@@ -182,8 +183,8 @@ mod tests {
         let mut clock = parsed.halfmove_clock;
         let save = pos;
         let m = Move::new(board::G3, board::H1, Piece::Knight, true);
-        let undo = make_move(&mut pos, &m, &mut clock);
-        unmake_move(&mut pos, undo, &mut clock);
+        let undo = pos.make_move(&m, &mut clock);
+        pos.unmake_move(undo, &mut clock);
         assert_eq!(pos, save);
     }
 
@@ -195,8 +196,8 @@ mod tests {
         let save = pos;
         let save_clock = clock;
         let m = Move::new(board::B6, board::B5, Piece::King, false);
-        let undo = make_move(&mut pos, &m, &mut clock);
-        unmake_move(&mut pos, undo, &mut clock);
+        let undo = pos.make_move(&m, &mut clock);
+        pos.unmake_move(undo, &mut clock);
         assert_eq!(pos, save);
         assert_eq!(clock, save_clock);
     }
