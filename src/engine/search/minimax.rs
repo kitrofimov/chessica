@@ -112,7 +112,12 @@ impl Searcher {
         // Generating only captures and promotions
         let captures = game.pseudo_moves()
             .into_iter()
-            .filter(|m| m.is_capture() || m.is_promotion())
+            .filter(|m| match () {
+                _ if m.is_promotion() => true,
+                _ if m.is_capture()   => 
+                    game.position.static_exchange_eval(*m) >= SEE_QUIESCENCE_SEARCH_LOWER_BOUND,
+                _ => false,
+            })
             .collect::<Vec<_>>();
 
         for m in captures {
