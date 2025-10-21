@@ -2,11 +2,11 @@ use std::io::{self, BufRead, Write};
 use std::sync::{Arc, atomic::AtomicBool};
 use std::thread::JoinHandle;
 
+use chessica::uci::{self, constants::*};
 use chessica::engine::{
     engine::Engine,
     search::searcher::Searcher,
 };
-use chessica::uci;
 
 fn main() {
     let stdin = io::stdin();
@@ -34,7 +34,7 @@ fn main() {
                 break;
             }
             "d" => println!("{}", engine.game.position),
-            _   => println!("info string Unknown command!")
+            _   => println!("{} {}", UCI_LOG, UCI_UNKNOWN_COMMAND)
         }
 
         io::stdout().flush().unwrap();
