@@ -34,8 +34,8 @@ impl Position {
 
         // If en passant, take off the captured piece (interferes with sliding pieces' attacks)
         if m.en_passant {
-            let capture_sq = m.en_passant_sq_to_captured_sq(self.player_to_move);
-            occ.unset_bit(capture_sq);
+            let captured_sq = m.en_passant_sq_to_captured_sq(self.player_to_move);
+            occ.unset_bit(captured_sq);
         }
 
         // Take off attacking piece

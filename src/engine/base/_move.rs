@@ -102,7 +102,15 @@ impl Move {
             score += MVV_LVA_PROMOTION_BONUS;
         }
         if self.is_capture() {
-            let victim = position.piece_at(self.to).map(|(_, piece)| piece.value()).unwrap();
+            let captured_sq = if self.en_passant {
+                self.en_passant_sq_to_captured_sq(position.player_to_move)
+            } else {
+                self.to
+            };
+            let victim = position
+                .piece_at(captured_sq)
+                .map(|(_, piece)| piece.value())
+                .unwrap();
             let attacker = self.piece.value();
             score += victim - attacker;
         }
