@@ -13,7 +13,7 @@ use crate::engine::{
         rules::checks::*,
     },
     search::{
-        evaluate::evaluate,
+        evaluate::*,
         transposition_table::*,
         searcher::Searcher,
     },
@@ -28,7 +28,7 @@ pub struct SearchContext {
 
 struct SearchResultInternal {
     best_move: Option<Move>,
-    eval: i32,
+    eval: Evaluation,
     pv: Vec<Move>,  // reversed: leaf -> root
     was_unwinded: bool,
 }
@@ -53,7 +53,6 @@ impl Searcher {
         ctx: &SearchContext,
     ) -> SearchResultInternal {
         *nodes += 1;
-
         if self.should_stop(nodes, ctx) {
             return SearchResultInternal {
                 best_move: None,
@@ -79,13 +78,63 @@ impl Searcher {
         if depth == 0 {
             return SearchResultInternal {
                 best_move: None,
-                eval: evaluate(&game.position),
+                eval: self.quiescence_search(game, alpha, beta, nodes, ctx),
                 pv: vec![],
                 was_unwinded: false,
             };
         }
 
         self.search_moves(game, depth, alpha, beta, maximize, nodes, ctx)
+    }
+
+    fn quiescence_search(
+        &self,
+        game: &mut Game,
+        mut alpha: i32,
+        beta: i32,
+        nodes: &mut u64,
+        ctx: &SearchContext,
+    ) -> Evaluation {
+        *nodes += 1;
+        if self.should_stop(nodes, ctx) {
+            return evaluate(&game.position);
+        }
+
+        let stand_pat = evaluate(&game.position);
+
+        // Beta-cutoff
+        if stand_pat >= beta {
+            return beta;
+        }
+
+        // Is the position better than what we've seen so far?
+        if stand_pat > alpha {
+            alpha = stand_pat;
+        }
+
+        // Generating only captures and promotions
+        let captures = game.pseudo_moves()
+            .into_iter()
+            .filter(|m| m.is_capture() || m.is_promotion())
+            .collect::<Vec<_>>();
+
+        for m in captures {
+            if game.try_to_make_move(&m) == false {
+                continue;
+            }
+
+            let score = -self.quiescence_search(game, -beta, -alpha, nodes, ctx);
+            game.unmake_move();
+
+            if score >= beta {
+                return beta;
+            }
+            if score > alpha {
+                alpha = score;
+            }
+        }
+
+        alpha
     }
 
     // Check if stop_flag was set or time is over
