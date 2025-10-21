@@ -38,6 +38,7 @@ const fn generate_king_attack(square: u8) -> u64 {
     ((no_h & no_1) >> 7)   // down-right
 }
 
+/// Which squares are attacked by white pawn standing on [idx] square
 pub static PAWN_ATTACKS_WHITE: [u64; 64] = {
     let mut table = [0u64; 64];
     let mut sq = 0;
@@ -59,6 +60,7 @@ pub static PAWN_ATTACKS_WHITE: [u64; 64] = {
     table
 };
 
+/// Which squares are attacked by black pawn standing on [idx] square
 pub static PAWN_ATTACKS_BLACK: [u64; 64] = {
     let mut table = [0u64; 64];
     let mut sq = 0;
