@@ -1,4 +1,4 @@
-use crate::constants::{AUTHOR, NAME};
+use crate::uci::constants::*;
 use crate::engine::{
     engine::Engine,
     board::game::Game,
@@ -28,7 +28,7 @@ pub fn position(engine: &mut Engine, tokens: &[&str]) {
     match tokens[1] {
         "fen" => {
             if tokens.len() < 8 {
-                eprintln!("info string Bad FEN! {:?}", FenParseError::BadFieldCount);
+                eprintln!("{} {} {:?}", UCI_LOG, UCI_BAD_FEN, FenParseError::BadFieldCount);
                 return;
             }
             let fen = tokens[2..=7].join(" ");
@@ -38,7 +38,7 @@ pub fn position(engine: &mut Engine, tokens: &[&str]) {
                     i = 8;
                 }
                 Err(e) => {
-                    eprintln!("info string Bad FEN! {:?}", e);
+                    eprintln!("{} {} {:?}", UCI_LOG, UCI_BAD_FEN, e);
                     return;
                 }
             }
@@ -54,7 +54,7 @@ pub fn position(engine: &mut Engine, tokens: &[&str]) {
         for mv in &tokens[i + 1..] {
             let ok = engine.game.try_to_make_uci_move(mv);
             if !ok {
-                println!("info string Failed to execute move {}!", mv);
+                println!("{} Failed to execute move {}!", UCI_LOG, mv);
             }
         }
     }

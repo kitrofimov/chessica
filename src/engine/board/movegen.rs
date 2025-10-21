@@ -3,26 +3,26 @@ use crate::{engine::{
         _move::{CastlingSide::{self, *}, Move},
         piece::Piece,
         player::Player,
+        bitboard::Bitboard,
     },
-    board::{
-        position::*,
-        rules::checks::is_square_attacked,
-    },
+    board::position::*,
 }};
 use crate::utility::*;
 use crate::constants::{board::*, attacks::*, magics::*, blockers::*, *};
 
-/// Generate pseudo moves for a position (not checking for legality)
-pub fn pseudo_moves(pos: &Position) -> Vec<Move> {
-    let mut moves = Vec::with_capacity(MOVE_LIST_CAPACITY);
-    pseudo_pawn_moves(pos, &mut moves);
-    pseudo_moves_for_piece(pos, Piece::Knight, &mut moves);
-    pseudo_moves_for_piece(pos, Piece::Bishop, &mut moves);
-    pseudo_moves_for_piece(pos, Piece::Rook, &mut moves);
-    pseudo_moves_for_piece(pos, Piece::Queen, &mut moves);
-    pseudo_moves_for_piece(pos, Piece::King, &mut moves);
-    pseudo_castling_moves(pos, &mut moves);
-    moves
+impl Position {
+    /// Generate pseudo moves for a position (not checking for legality)
+    pub fn pseudo_moves(&self) -> Vec<Move> {
+        let mut moves = Vec::with_capacity(MOVE_LIST_CAPACITY);
+        pseudo_pawn_moves     (self, &mut moves);
+        pseudo_moves_for_piece(self, Piece::Knight, &mut moves);
+        pseudo_moves_for_piece(self, Piece::Bishop, &mut moves);
+        pseudo_moves_for_piece(self, Piece::Rook, &mut moves);
+        pseudo_moves_for_piece(self, Piece::Queen, &mut moves);
+        pseudo_moves_for_piece(self, Piece::King, &mut moves);
+        pseudo_castling_moves (self, &mut moves);
+        moves
+    }
 }
 
 fn pseudo_castling_moves(pos: &Position, moves: &mut Vec<Move>) {
@@ -62,7 +62,7 @@ fn can_castle(pos: &Position, side: CastlingSide) -> bool {
     // Make sure the king doesn't pass through attacked squares
     while mask != 0 {
         let sq = pop_lsb(&mut mask);
-        if is_square_attacked(pos, sq.into(), pos.player_to_move.opposite()) {
+        if pos.is_square_attacked(sq.into(), pos.player_to_move.opposite()) {
             return false;
         }
     };
@@ -193,6 +193,26 @@ fn pseudo_moves_for_piece(pos: &Position, piece_type: Piece, moves: &mut Vec<Mov
             moves.push(Move::new(from as u8, to, piece_type, capture));
         }
     }
+}
+
+/// Compute attacks of a bishop at a square, having a special occupancy mask
+pub fn bishop_attacks_occ(occ: Bitboard, sq: usize) -> Bitboard {
+    let mask = BISHOP_MASKS[sq];
+    let magic = BISHOP_MAGICS[sq];
+    let shift = BISHOP_MAGICS_SHIFT[sq];
+    let blockers = occ & mask;  // using occ, not pos.occupied
+    let hash = (blockers.wrapping_mul(magic) >> shift) as usize;
+    BISHOP_ATTACK_TABLES[sq][hash]
+}
+
+/// Compute attacks of a rook at a square, having a special occupancy mask
+pub fn rook_attacks_occ(occ: Bitboard, sq: usize) -> Bitboard {
+    let mask = ROOK_MASKS[sq];
+    let magic = ROOK_MAGICS[sq];
+    let shift = ROOK_MAGICS_SHIFT[sq];
+    let blockers = occ & mask;  // using occ, not pos.occupied
+    let hash = (blockers.wrapping_mul(magic) >> shift) as usize;
+    ROOK_ATTACK_TABLES[sq][hash]
 }
 
 

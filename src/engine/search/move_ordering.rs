@@ -22,11 +22,12 @@ impl Searcher {
             } else if Some(*m) == last_pv_move {
                 MOVE_ORDERING_LAST_PV_MOVE
             } else if m.is_capture() {  // MVV-LVA captures
+                let see = game.position.static_exchange_eval(*m);
                 let mvv_lva = m.mvv_lva_score(&game.position);
-                if mvv_lva > 0 {
-                    return MOVE_ORDERING_WINNING_CAPTURE + mvv_lva
+                if see >= 0 {  // Value SEE (long-term) more than MVV-LVA (short-term)
+                    MOVE_ORDERING_WINNING_CAPTURE + 10 * see + mvv_lva
                 } else {
-                    return MOVE_ORDERING_LOSING_CAPTURE + mvv_lva
+                    MOVE_ORDERING_LOSING_CAPTURE + 10 * see
                 }
             } else if m.is_promotion() {  // Promotions
                 MOVE_ORDERING_PROMOTION

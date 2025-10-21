@@ -2,6 +2,7 @@ use std::{sync::{atomic::AtomicBool, Arc}, time::Duration};
 use std::thread::{self, JoinHandle};
 use std::time::Instant;
 
+use crate::uci::constants::*;
 use crate::{
     engine::{
         base::player::Player,
@@ -104,7 +105,7 @@ pub fn go(
         let winc = params.winc.unwrap_or(0);
         let binc = params.binc.unwrap_or(0);
         let ms = compute_movetime(&mut engine.game, wtime, btime, winc, binc);
-        println!("info string will search for {} ms", ms);
+        println!("{} will search for {} ms", UCI_LOG, ms);
         go_movetime(engine, Duration::from_millis(ms.try_into().unwrap()), stop_flag, search_thread);
     }
 }

@@ -1,13 +1,7 @@
 use crate::constants::GAME_HISTORY_CAPACITY;
 use crate::engine::{
     board::position::{Position, FenParseError},
-    board::movegen::pseudo_moves,
-    board::rules::{
-        make_move::*,
-        unmake_move::*,
-        draw::*,
-        checks::*,
-    },
+    board::rules::unmake_move::UndoData,
     base::_move::Move,
 };
 
@@ -43,12 +37,12 @@ impl Game {
 
     pub fn try_to_make_move(&mut self, m: &Move) -> bool {
         let mut clock = self.halfmove_clock;
-        let undo = make_move(&mut self.position, m, &mut clock);
+        let undo = self.position.make_move(m, &mut clock);
 
         // Check legality of a move (is player that made the move still in check?)
         // Using `.opposite()` because the flag was already flipped in `make_move`
-        if is_king_in_check(&self.position, self.position.player_to_move.opposite()) {
-            unmake_move(&mut self.position, undo, &mut clock);
+        if self.position.is_king_in_check(self.position.player_to_move.opposite()) {
+            self.position.unmake_move(undo, &mut clock);
             return false;
         }
 
@@ -60,13 +54,13 @@ impl Game {
 
     pub fn unmake_move(&mut self) {
         let mut clock = self.halfmove_clock;  // double mutable borrow workaround
-        unmake_move(&mut self.position, self.undos.pop().unwrap(), &mut clock);
+        self.position.unmake_move(self.undos.pop().unwrap(), &mut clock);
         self.halfmove_clock = clock;
     }
 
     // UTTERLY INSANE IMPLEMENTATION that works and seems to be fast enough
     pub fn try_to_make_uci_move(&mut self, uci: &str) -> bool {
-        let moves = self.pseudo_moves();
+        let moves = self.position.pseudo_moves();
         for m in &moves {
             if m.to_string() == uci {
                 return self.try_to_make_move(m);
@@ -94,11 +88,7 @@ impl Game {
     }
 
     fn is_insufficient_material(&self) -> bool {
-        is_insufficient_material(&self.position)
-    }
-
-    pub fn pseudo_moves(&self) -> Vec<Move> {
-        pseudo_moves(&self.position)
+        self.position.is_insufficient_material()
     }
 
     pub fn is_draw(&self) -> bool {
@@ -106,6 +96,11 @@ impl Game {
             || self.is_fifty_move_rule()
             || self.is_insufficient_material()
     }
+
+    pub fn pseudo_moves(&self) -> Vec<Move> {
+        self.position.pseudo_moves()
+    }
+
 }
 
 

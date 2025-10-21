@@ -52,7 +52,7 @@ impl std::fmt::Display for Position {
         for rank in 0..8 {
             for file in 0..8 {
                 let sq_idx = rank * 8 + file;
-                let what = self.what(sq_idx);
+                let what = self.piece_at(sq_idx);
 
                 if let Some((player, piece)) = what {
                     let uppercase = player == Player::White;
@@ -247,7 +247,7 @@ impl Position {
         self.occupied = self.w.all | self.b.all;
     }
 
-    pub fn what(&self, sq_idx: u8) -> Option<(Player, Piece)> {
+    pub fn piece_at(&self, sq_idx: u8) -> Option<(Player, Piece)> {
         let bb = bit(sq_idx);
 
         if self.w.pawns & bb != 0 {
@@ -279,11 +279,30 @@ impl Position {
         }
     }
 
+    pub fn remove_piece_at(&mut self, sq: u8) {
+        self.w.unset_bit(sq);
+        self.b.unset_bit(sq);
+        self.update();
+    }
+
+    /// Returns references to the BitboardSets: (player, opponent)
+    pub fn perspective(&self, player: Player) -> (&BitboardSet, &BitboardSet) {
+        match player {
+            Player::White => (&self.w, &self.b),
+            Player::Black => (&self.b, &self.w),
+        }
+    }
+
+    /// Returns mutable references to the BitboardSets: (player, opponent)
     pub fn perspective_mut(&mut self, player: Player) -> (&mut BitboardSet, &mut BitboardSet) {
         match player {
             Player::White => (&mut self.w, &mut self.b),
             Player::Black => (&mut self.b, &mut self.w),
         }
+    }
+
+    pub fn all(&self) -> u64 {
+        self.w.all | self.b.all
     }
 }
 
