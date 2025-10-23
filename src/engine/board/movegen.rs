@@ -23,6 +23,37 @@ impl Position {
         pseudo_castling_moves (self, &mut moves);
         moves
     }
+
+    pub fn count_n_pseudo_moves(&self, square: u8, player: Player, piece: Piece) -> u32 {
+        let friendly = self.perspective(player).0.all;
+        match piece {
+            Piece::Pawn   => unreachable!(),
+            Piece::King   => unreachable!(),
+            Piece::Knight => knight_attacks(self, square as usize, friendly).count_ones(),
+            Piece::Bishop => bishop_attacks(self, square as usize, friendly).count_ones(),
+            Piece::Rook   => rook_attacks  (self, square as usize, friendly).count_ones(),
+            Piece::Queen  => queen_attacks (self, square as usize, friendly).count_ones(),
+        }
+    }
+
+    pub fn attack_map(&self, player: Player) -> Bitboard {
+        let (f, _) = self.perspective(player);
+        let mut mask = 0;
+        for sq in 0usize..64 {
+            if let Some((p, piece)) = self.piece_at(sq as u8) {
+                if p != player { continue; }
+                mask |= match piece {
+                    Piece::Pawn   => pawn_attacks(player, f.pawns),
+                    Piece::Knight => knight_attacks(self, sq, 0),
+                    Piece::Bishop => bishop_attacks(self, sq, 0),
+                    Piece::Rook   => rook_attacks  (self, sq, 0),
+                    Piece::Queen  => queen_attacks (self, sq, 0),
+                    Piece::King   => king_attacks  (self, sq, 0),
+                }
+            }
+        }
+        mask
+    }
 }
 
 fn pseudo_castling_moves(pos: &Position, moves: &mut Vec<Move>) {
@@ -95,11 +126,11 @@ fn pseudo_pawn_moves(pos: &Position, moves: &mut Vec<Move>) {
         match pos.player_to_move {
             Player::White => (
                 pos.w.pawns, pos.b.all, 7, 8, 9,
-                RANK[2], RANK[8], !FILE_H, !FILE_A,
+                RANK_1B[2], RANK_1B[8], !FILE_H, !FILE_A,
             ),
             Player::Black => (
                 pos.b.pawns, pos.w.all, -7, -8, -9,
-                RANK[7], RANK[1], !FILE_A, !FILE_H,
+                RANK_1B[7], RANK_1B[1], !FILE_A, !FILE_H,
             )
         };
 
@@ -132,6 +163,21 @@ fn pseudo_pawn_moves(pos: &Position, moves: &mut Vec<Move>) {
 
     add_pawn_moves(moves, ep_left,  left_offset,  true, false, true);
     add_pawn_moves(moves, ep_right, right_offset, true, false, true);
+}
+
+pub fn pawn_attacks(player: Player, pawns: u64) -> u64 {
+    match player {
+        Player::White => {
+            let left  = (pawns & !FILE_A) << 7;
+            let right = (pawns & !FILE_H) << 9;
+            left | right
+        }
+        Player::Black => {
+            let left  = (pawns & !FILE_H) >> 7;
+            let right = (pawns & !FILE_A) >> 9;
+            left | right
+        }
+    }
 }
 
 pub fn knight_attacks(_pos: &Position, sq: usize, friendly: u64) -> u64 {

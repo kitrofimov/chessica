@@ -7,13 +7,13 @@ const fn generate_knight_attack(square: u8) -> u64 {
 
     let no_ab = bb & !(FILE_A | FILE_B);
     let no_gh = bb & !(FILE_G | FILE_H);
-    let no_12 = bb & !(RANK[1] | RANK[2]);
-    let no_78 = bb & !(RANK[7] | RANK[8]);
+    let no_12 = bb & !(RANK_1B[1] | RANK_1B[2]);
+    let no_78 = bb & !(RANK_1B[7] | RANK_1B[8]);
 
-    ((no_ab & !RANK[8]) << 6)  | // left-left-up
-    ((no_ab & !RANK[1]) >> 10) | // left-left-down
-    ((no_gh & !RANK[8]) << 10) | // right-right-up
-    ((no_gh & !RANK[1]) >> 6)  | // right-right-down
+    ((no_ab & !RANK_1B[8]) << 6)  | // left-left-up
+    ((no_ab & !RANK_1B[1]) >> 10) | // left-left-down
+    ((no_gh & !RANK_1B[8]) << 10) | // right-right-up
+    ((no_gh & !RANK_1B[1]) >> 6)  | // right-right-down
     ((no_12 & !FILE_H) >> 15)  | // right-down-down
     ((no_12 & !FILE_A) >> 17)  | // left-down-down
     ((no_78 & !FILE_H) << 17)  | // right-up-up
@@ -25,8 +25,8 @@ const fn generate_king_attack(square: u8) -> u64 {
 
     let no_a = bb & !FILE_A;
     let no_h = bb & !FILE_H;
-    let no_1 = bb & !RANK[1];
-    let no_8 = bb & !RANK[8];
+    let no_1 = bb & !RANK_1B[1];
+    let no_8 = bb & !RANK_1B[8];
 
      (no_a >> 1)         | // right
      (no_h << 1)         | // left
