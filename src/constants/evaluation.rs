@@ -12,6 +12,9 @@ pub const KING_CENTER_PENALTY:         i32 = 30;
 pub const KING_OPEN_FILE_PENALTY:      i32 = 15;  // no pawns at all
 pub const KING_NO_PAWN_SHIELD_PENALTY: i32 = 10;  // no pawns in front of the king
 
+pub const SPACE_CONTROL_CENTER_BONUS:     i32 = 3;
+pub const SPACE_CONTROL_ENEMY_HALF_BONUS: i32 = 1;
+
 pub const PAWN_PST: [i32; 64] = [
      0,  0,  0,  0,  0,  0,  0,  0,
     50, 50, 50, 50, 50, 50, 50, 50,

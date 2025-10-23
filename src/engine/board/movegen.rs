@@ -35,6 +35,25 @@ impl Position {
             Piece::Queen  => queen_attacks (self, square as usize, friendly).count_ones(),
         }
     }
+
+    pub fn attack_map(&self, player: Player) -> Bitboard {
+        let (f, _) = self.perspective(player);
+        let mut mask = 0;
+        for sq in 0usize..64 {
+            if let Some((p, piece)) = self.piece_at(sq as u8) {
+                if p != player { continue; }
+                mask |= match piece {
+                    Piece::Pawn   => pawn_attacks(player, f.pawns),
+                    Piece::Knight => knight_attacks(self, sq, 0),
+                    Piece::Bishop => bishop_attacks(self, sq, 0),
+                    Piece::Rook   => rook_attacks  (self, sq, 0),
+                    Piece::Queen  => queen_attacks (self, sq, 0),
+                    Piece::King   => king_attacks  (self, sq, 0),
+                }
+            }
+        }
+        mask
+    }
 }
 
 fn pseudo_castling_moves(pos: &Position, moves: &mut Vec<Move>) {
@@ -144,6 +163,21 @@ fn pseudo_pawn_moves(pos: &Position, moves: &mut Vec<Move>) {
 
     add_pawn_moves(moves, ep_left,  left_offset,  true, false, true);
     add_pawn_moves(moves, ep_right, right_offset, true, false, true);
+}
+
+pub fn pawn_attacks(player: Player, pawns: u64) -> u64 {
+    match player {
+        Player::White => {
+            let left  = (pawns & !FILE_A) << 7;
+            let right = (pawns & !FILE_H) << 9;
+            left | right
+        }
+        Player::Black => {
+            let left  = (pawns & !FILE_H) >> 7;
+            let right = (pawns & !FILE_A) >> 9;
+            left | right
+        }
+    }
 }
 
 pub fn knight_attacks(_pos: &Position, sq: usize, friendly: u64) -> u64 {

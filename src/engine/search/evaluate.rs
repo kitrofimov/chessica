@@ -257,8 +257,21 @@ impl Position {
         white_score - black_score
     }
 
-    // TODO
     fn eval_space_control(&self) -> i32 {
-        0
+        let center_mask: u64 = sq_to_bb(&[D4, E4, D5, E5]);
+        let white_half: u64 = FILE[0] | FILE[1] | FILE[2] | FILE[3];
+        let black_half: u64 = FILE[4] | FILE[5] | FILE[6] | FILE[7];
+
+        let white_attacks = self.attack_map(Player::White);
+        let black_attacks = self.attack_map(Player::Black);
+
+        let white_center = (white_attacks & center_mask).count_ones() as i32;
+        let black_center = (black_attacks & center_mask).count_ones() as i32;
+
+        let white_enemy_half = (white_attacks & black_half).count_ones() as i32;
+        let black_enemy_half = (black_attacks & white_half).count_ones() as i32;
+
+        SPACE_CONTROL_CENTER_BONUS     * (white_center     - black_center) +
+        SPACE_CONTROL_ENEMY_HALF_BONUS * (white_enemy_half - black_enemy_half)
     }
 }
