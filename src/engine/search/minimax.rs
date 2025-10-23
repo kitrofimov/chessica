@@ -53,7 +53,7 @@ impl Searcher {
         if self.should_stop(nodes, ctx) {
             return SearchResultInternal {
                 best_move: None,
-                eval: evaluate(&game.position),
+                eval: game.position.evaluate(),
                 pv: vec![],
                 was_unwinded: true,
             };
@@ -93,11 +93,11 @@ impl Searcher {
         ctx: &SearchContext,
     ) -> Evaluation {
         *nodes += 1;
-        if self.should_stop(nodes, ctx) {
-            return evaluate(&game.position);
-        }
+        let stand_pat = game.position.evaluate();
 
-        let stand_pat = evaluate(&game.position);
+        if self.should_stop(nodes, ctx) {
+            return stand_pat;
+        }
 
         // Beta-cutoff
         if stand_pat >= beta {

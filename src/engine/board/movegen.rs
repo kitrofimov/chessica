@@ -23,6 +23,18 @@ impl Position {
         pseudo_castling_moves (self, &mut moves);
         moves
     }
+
+    pub fn count_n_pseudo_moves(&self, square: u8, player: Player, piece: Piece) -> u32 {
+        let friendly = self.perspective(player).0.all;
+        match piece {
+            Piece::Pawn   => unreachable!(),
+            Piece::King   => unreachable!(),
+            Piece::Knight => knight_attacks(self, square as usize, friendly).count_ones(),
+            Piece::Bishop => bishop_attacks(self, square as usize, friendly).count_ones(),
+            Piece::Rook   => rook_attacks  (self, square as usize, friendly).count_ones(),
+            Piece::Queen  => queen_attacks (self, square as usize, friendly).count_ones(),
+        }
+    }
 }
 
 fn pseudo_castling_moves(pos: &Position, moves: &mut Vec<Move>) {
@@ -95,11 +107,11 @@ fn pseudo_pawn_moves(pos: &Position, moves: &mut Vec<Move>) {
         match pos.player_to_move {
             Player::White => (
                 pos.w.pawns, pos.b.all, 7, 8, 9,
-                RANK[2], RANK[8], !FILE_H, !FILE_A,
+                RANK_1B[2], RANK_1B[8], !FILE_H, !FILE_A,
             ),
             Player::Black => (
                 pos.b.pawns, pos.w.all, -7, -8, -9,
-                RANK[7], RANK[1], !FILE_A, !FILE_H,
+                RANK_1B[7], RANK_1B[1], !FILE_A, !FILE_H,
             )
         };
 

@@ -1,5 +1,5 @@
 use crate::constants::{board, zobrist::*};
-use crate::utility::square_idx_to_coordinates;
+use crate::utility::sq_to_coord;
 use crate::engine::{
     base::{bitboard::*, _move::*, piece::Piece, player::Player},
     board::{position::*, rules::unmake_move::UndoData},
@@ -109,7 +109,7 @@ fn apply_move_hash(hash: &mut u64, m: &Move, player: Player) {
 }
 
 fn en_passant_hash(hash: &mut u64, ep_sq: u8) {
-    let (file, _) = square_idx_to_coordinates(ep_sq);
+    let (file, _) = sq_to_coord(ep_sq);
     *hash ^= ZOBRIST_EN_PASSANT_FILE[file as usize];
 }
 

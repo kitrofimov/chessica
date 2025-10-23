@@ -23,7 +23,7 @@ pub fn pop_lsb(bitboard: &mut u64) -> u8 {
 /// Returns `true` if the given square index corresponds to a white-colored
 /// square on a standard chessboard (a1 is dark)
 pub fn is_square_color_white(sq: u8) -> bool {
-    let (file, rank) = square_idx_to_coordinates(sq);
+    let (file, rank) = sq_to_coord(sq);
     (file + rank) % 2 == 0
 }
 
@@ -48,10 +48,14 @@ pub fn square_string_to_idx(sq: &str) -> Option<u8> {
 }
 
 /// Converts a square index into `(file, rank)` coordinates
-pub fn square_idx_to_coordinates(sq: u8) -> (u8, u8) {
+pub fn sq_to_coord(sq: u8) -> (u8, u8) {
     let file = sq % 8;
     let rank = sq / 8;
     (file, rank)
+}
+
+pub fn coord_to_sq(f: u8, r: u8) -> u8 {
+    r * 8 + f
 }
 
 /// Performs a bitwise shift on a bitboard, positive offset is left shift,

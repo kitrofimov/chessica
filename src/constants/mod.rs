@@ -4,6 +4,7 @@ pub mod attacks;
 pub mod blockers;
 pub mod zobrist;
 pub mod move_ordering;
+pub mod evaluation;
 
 // Preallocation constants
 pub const GAME_HISTORY_CAPACITY: usize = 256;

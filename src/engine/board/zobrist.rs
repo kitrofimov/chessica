@@ -1,6 +1,6 @@
 use crate::constants::zobrist::*;
 use crate::engine::{board::position::*, base::player::Player};
-use crate::utility::square_idx_to_coordinates;
+use crate::utility::sq_to_coord;
 
 pub type ZobristHash = u64;
 
@@ -21,7 +21,7 @@ pub fn zobrist_hash(pos: &Position) -> u64 {
     hash ^= ZOBRIST_CASTLING[pos.castling.encode() as usize];
 
     if let Some(ep_sq_idx) = pos.en_passant_square {
-        let (file, _) = square_idx_to_coordinates(ep_sq_idx);
+        let (file, _) = sq_to_coord(ep_sq_idx);
         hash ^= ZOBRIST_EN_PASSANT_FILE[file as usize];
     }
 
