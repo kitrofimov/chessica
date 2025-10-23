@@ -25,17 +25,19 @@ impl Piece {
          Piece::Rook, Piece::Queen,  Piece::King]
     }
 
+    /// Return a piece's value measured in centipawns
     pub fn value(&self) -> i32 {
         match self {
-            Piece::Pawn   => 10,
-            Piece::Knight => 30,
-            Piece::Bishop => 33,
-            Piece::Rook   => 50,
-            Piece::Queen  => 90,
-            Piece::King   => 10_000,
+            Piece::Pawn   => 100,
+            Piece::Knight => 300,
+            Piece::Bishop => 330,
+            Piece::Rook   => 500,
+            Piece::Queen  => 900,
+            Piece::King   => 100_000,
         }
     }
 
+    /// Return a piece's index, as encoded in magic value tables
     pub fn index(&self) -> usize {
         match self {
             Piece::Pawn   => 0,

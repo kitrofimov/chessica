@@ -25,9 +25,9 @@ impl Searcher {
                 let see = game.position.static_exchange_eval(*m);
                 let mvv_lva = m.mvv_lva_score(&game.position);
                 if see >= 0 {  // Value SEE (long-term) more than MVV-LVA (short-term)
-                    MOVE_ORDERING_WINNING_CAPTURE + 10 * see + mvv_lva
+                    MOVE_ORDERING_WINNING_CAPTURE + 2 * see + mvv_lva
                 } else {
-                    MOVE_ORDERING_LOSING_CAPTURE + 10 * see
+                    MOVE_ORDERING_LOSING_CAPTURE + 2 * see
                 }
             } else if m.is_promotion() {  // Promotions
                 MOVE_ORDERING_PROMOTION
