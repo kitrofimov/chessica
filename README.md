@@ -24,9 +24,10 @@ Hobby-level, bitboard-representation chess engine that **is in active developmen
 - [x] Move ordering
 - [x] Transposition table
     - [x] Add TT move to Move Ordering
-- [ ] Quiescence Search
+- [x] Quiescence Search
+- [x] Static Exchange Evaluation
 - [ ] Better evaluation function
-- [ ] Static Exchange Evaluation
+- [ ] Alpha-beta pruning graphviz visualization (for debugging purposes)
 - [ ] Negamax?
 - [ ] Fix forced mate evaluation
 - [ ] Better time control (adaptive `moves_remaining` in `uci::compute_movetime`)
