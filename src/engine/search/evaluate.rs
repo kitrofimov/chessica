@@ -223,9 +223,38 @@ impl Position {
         white_score - black_score
     }
 
-    // TODO
-    fn eval_king_safety(&self) -> i32 {
-        0
+    fn eval_king_safety_for_side(&self, player: Player) -> i32 {
+        let king_sq = self.perspective(player).0.king.trailing_zeros() as u8;
+        let (file, rank) = sq_to_coord(king_sq);
+        let mut score = 0;
+
+        if rank <= 1 && (file <= 2 || file >= 5) {  // Castling bonus
+            score += KING_CASTLED_BONUS;
+        } else if rank <= 1 && (3 <= file && file <= 4) {  // Still in center (d1/e1)
+            score -= KING_CENTER_PENALTY;
+        }
+
+        if rank <= 1 {  // Check for pawn shield in front of the king
+            let next_rank = rank + 1;
+            for df in [-1, 0, 1] {
+                let f = file as i8 + df;
+                if f < 0 || f > 7 { continue; }
+                let sq = coord_to_sq(f as u8, next_rank);
+                if (self.w.pawns & bit(sq)) == 0 {
+                    score -= KING_NO_PAWN_SHIELD_PENALTY;
+                }
+                if (self.w.pawns & FILE[f as usize]) == 0 {
+                    score -= KING_OPEN_FILE_PENALTY;
+                }
+            }
+        }
+        score
+    }
+
+    pub fn eval_king_safety(&self) -> i32 {
+        let white_score = self.eval_king_safety_for_side(Player::White);
+        let black_score = self.eval_king_safety_for_side(Player::Black);
+        white_score - black_score
     }
 
     // TODO
