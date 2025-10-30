@@ -304,6 +304,31 @@ impl Position {
     pub fn all(&self) -> u64 {
         self.w.all | self.b.all
     }
+
+    /// Returns a value in range [0; 24], where 0 is "true endgame" and 24 is "true midgame"
+    pub fn phase(&self) -> i32 {
+        let mut phase = 0;
+
+        phase += self.w.count(Piece::Bishop);
+        phase += self.b.count(Piece::Bishop);
+        phase += self.w.count(Piece::Knight);
+        phase += self.b.count(Piece::Knight);
+
+        phase += 2 * self.w.count(Piece::Rook);
+        phase += 2 * self.b.count(Piece::Rook);
+
+        phase += 4 * self.w.count(Piece::Queen);
+        phase += 4 * self.b.count(Piece::Queen);
+
+        phase as i32
+    }
+
+    /// Linearly interpolate between `mid` and `end` based on the game's current phase
+    pub fn interpolate_phase(&self, mid: i32, end: i32) -> i32 {
+        let phase_max = 24;
+        let phase = self.phase();
+        (mid * phase + end * (phase_max - phase)) / phase_max
+    }
 }
 
 

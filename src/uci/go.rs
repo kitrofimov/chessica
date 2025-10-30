@@ -15,26 +15,28 @@ use crate::{
 
 #[derive(Debug)]
 struct GoParams {
-    perft:    Option<usize>,
-    movetime: Option<usize>,
-    depth:    Option<usize>,
-    infinite: bool,
-    wtime:    Option<usize>,
-    btime:    Option<usize>,
-    winc:     Option<usize>,
-    binc:     Option<usize>,
+    perft:     Option<usize>,
+    movetime:  Option<usize>,
+    depth:     Option<usize>,
+    infinite:  bool,
+    wtime:     Option<usize>,
+    btime:     Option<usize>,
+    winc:      Option<usize>,
+    binc:      Option<usize>,
+    movestogo: Option<usize>,
 }
 
 fn parse_go_params(tokens: &[&str]) -> GoParams {
     let mut params = GoParams {
-        perft:    None,
-        movetime: None,
-        depth:    None,
-        infinite: false,
-        wtime:    None,
-        btime:    None,
-        winc:     None,
-        binc:     None,
+        perft:     None,
+        movetime:  None,
+        depth:     None,
+        infinite:  false,
+        wtime:     None,
+        btime:     None,
+        winc:      None,
+        binc:      None,
+        movestogo: None,
     };
 
     // Treat `go` as `go infinite`
@@ -53,14 +55,15 @@ fn parse_go_params(tokens: &[&str]) -> GoParams {
 
     while i < tokens.len() {
         match tokens[i] {
-            "perft"    => parse(&mut params.perft,    &mut i),
-            "movetime" => parse(&mut params.movetime, &mut i),
-            "depth"    => parse(&mut params.depth,    &mut i),
-            "wtime"    => parse(&mut params.wtime,    &mut i),
-            "btime"    => parse(&mut params.btime,    &mut i),
-            "winc"     => parse(&mut params.winc,     &mut i),
-            "binc"     => parse(&mut params.binc,     &mut i),
-            "infinite" => params.infinite = true,
+            "perft"     => parse(&mut params.perft,     &mut i),
+            "movetime"  => parse(&mut params.movetime,  &mut i),
+            "depth"     => parse(&mut params.depth,     &mut i),
+            "wtime"     => parse(&mut params.wtime,     &mut i),
+            "btime"     => parse(&mut params.btime,     &mut i),
+            "winc"      => parse(&mut params.winc,      &mut i),
+            "binc"      => parse(&mut params.binc,      &mut i),
+            "movestogo" => parse(&mut params.movestogo, &mut i),
+            "infinite"  => params.infinite = true,
             _ => {}
         }
         i += 1;
@@ -68,18 +71,27 @@ fn parse_go_params(tokens: &[&str]) -> GoParams {
     params
 }
 
-fn compute_movetime(game: &mut Game, wtime: usize, btime: usize, winc: usize, binc: usize) -> usize {
+fn compute_movetime(
+    game: &mut Game,
+    wtime: usize, btime: usize,
+    winc: usize, binc: usize,
+    movestogo: Option<usize>
+) -> usize {
     let (time, inc) = if game.position.player_to_move == Player::White {
         (wtime, winc)
     } else {
         (btime, binc)
     };
 
-    let moves_remaining = 30;
-    let base_time = time / moves_remaining;
-    let inc_bonus = inc * 8 / 10;  // use 80% of the increment
+    let phase = game.position.phase() as usize;
+    let movestogo = match movestogo {
+        Some(n) if n > 0 => n,
+        _ => 20 + phase,
+    };
+    let base = (time as f64 / movestogo as f64) + (inc as f64 / 2.);
+    let phase_factor = 0.8 + 0.2 * (phase as f64 / 24.);
 
-    base_time + inc_bonus
+    (base * phase_factor) as usize
 }
 
 pub fn go(
@@ -104,7 +116,7 @@ pub fn go(
         let btime = params.btime.unwrap();
         let winc = params.winc.unwrap_or(0);
         let binc = params.binc.unwrap_or(0);
-        let ms = compute_movetime(&mut engine.game, wtime, btime, winc, binc);
+        let ms = compute_movetime(&mut engine.game, wtime, btime, winc, binc, params.movestogo);
         println!("{} will search for {} ms", UCI_LOG, ms);
         go_movetime(engine, Duration::from_millis(ms.try_into().unwrap()), stop_flag, search_thread);
     }
