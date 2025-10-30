@@ -26,14 +26,14 @@ pub struct SearchContext {
 struct SearchResultInternal {
     best_move: Option<Move>,
     eval: Evaluation,
-    pv: Vec<Move>,  // reversed: leaf -> root
+    pv: Vec<Move>,
     was_unwinded: bool,
 }
 
 pub struct SearchResult {
     pub best_move: Option<Move>,
     pub eval: i32,
-    pub pv: Vec<Move>,  // normal: root -> leaf
+    pub pv: Vec<Move>,
     pub was_unwinded: bool,
     pub nodes: u64,
 }
@@ -326,7 +326,7 @@ impl Searcher {
         SearchResult {
             best_move: result.best_move,
             eval: result.eval,
-            pv: result.pv.into_iter().rev().collect(),  // Reverse PV to be root -> leaf
+            pv: result.pv,
             was_unwinded: result.was_unwinded,
             nodes,
         }
