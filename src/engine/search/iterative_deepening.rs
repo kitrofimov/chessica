@@ -30,7 +30,7 @@ impl Searcher {
             }
 
             let depth_start = Instant::now();
-            let result = self.minimax_wrapper(
+            let result = self.negamax_wrapper(
                 game, depth, &SearchContext {
                     stop_flag: stop_flag.clone(),
                     start_time: start,
