@@ -1,7 +1,8 @@
 use std::time::Duration;
-use crate::constants::CHECKMATE_EVAL;
+use crate::constants::evaluation::*;
 use crate::engine::base::_move::Move;
 
+// TODO: fix mate encoding and printing
 pub fn print_uci_info(depth: usize, eval: i32, nodes: u64, pv: Vec<Move>, elapsed: Duration) {
     let score = if eval.abs() > CHECKMATE_EVAL - 1000 {
         let n_moves = ((CHECKMATE_EVAL - eval.abs()) as f64 / 2.).ceil();

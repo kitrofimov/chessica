@@ -2,12 +2,13 @@ use std::{
     sync::{atomic::{AtomicBool, Ordering}, Arc},
     time::{Duration, Instant},
 };
-use crate::{constants::{move_ordering::MOVE_ORDERING_HISTORY_CAP, *}};
+use crate::constants::{
+    move_ordering::MOVE_ORDERING_HISTORY_CAP,
+    evaluation::*,
+    SEE_QUIESCENCE_SEARCH_LOWER_BOUND
+};
 use crate::engine::{
-    base::{
-        _move::Move,
-        player::Player,
-    },
+    base::_move::Move,
     board::game::Game,
     search::{
         evaluate::*,
@@ -30,6 +31,17 @@ struct SearchResultInternal {
     was_unwinded: bool,
 }
 
+impl SearchResultInternal {
+    fn unwinded() -> Self {
+        SearchResultInternal {
+            best_move: None,
+            eval: 0,  // unwind makes whole search irrelevant, so 0 here
+            pv: vec![],
+            was_unwinded: true,
+        }
+    }
+}
+
 pub struct SearchResult {
     pub best_move: Option<Move>,
     pub eval: i32,
@@ -39,28 +51,29 @@ pub struct SearchResult {
 }
 
 impl Searcher {
-    fn minimax(
+    fn negamax(
         &mut self,
         game: &mut Game,
         depth: usize,
         mut alpha: i32,
         mut beta: i32,
-        maximize: bool,
         nodes: &mut u64,
         ctx: &SearchContext,
     ) -> SearchResultInternal {
         *nodes += 1;
+        let orig_alpha = alpha;
+        let orig_beta  = beta;
+
         if self.should_stop(nodes, ctx) {
-            return SearchResultInternal {
-                best_move: None,
-                eval: game.position.evaluate(),
-                pv: vec![],
-                was_unwinded: true,
-            };
+            return SearchResultInternal::unwinded();
         }
 
-        if let Some(result) = self.lookup_tt(game, depth, &mut alpha, &mut beta) {
-            return result;
+        if let Some(tt_result) = self.lookup_tt(game, depth, &mut alpha, &mut beta) {
+            return tt_result;
+        }
+
+        if depth == 0 {
+            return self.quiescence(game, alpha, beta, nodes, ctx);
         }
 
         if game.is_draw() {
@@ -72,87 +85,90 @@ impl Searcher {
             };
         }
 
-        if depth == 0 {
-            return SearchResultInternal {
-                best_move: None,
-                eval: self.quiescence_search(game, alpha, beta, nodes, ctx),
-                pv: vec![],
-                was_unwinded: false,
-            };
+        let mut pseudo_moves = game.pseudo_moves();
+        if pseudo_moves.is_empty() {
+            return self.handle_no_legal_moves(game, depth)
         }
 
-        self.search_moves(game, depth, alpha, beta, maximize, nodes, ctx)
-    }
+        self.order_moves(game, &mut pseudo_moves, Some(depth));
 
-    fn quiescence_search(
-        &self,
-        game: &mut Game,
-        mut alpha: i32,
-        beta: i32,
-        nodes: &mut u64,
-        ctx: &SearchContext,
-    ) -> Evaluation {
-        *nodes += 1;
-        let stand_pat = game.position.evaluate();
+        let mut best_eval = -EVAL_INF;
+        let mut best_move = None;
+        let mut best_pv = Vec::new();
+        let mut found_legal = false;
 
-        if self.should_stop(nodes, ctx) {
-            return stand_pat;
-        }
-
-        // Beta-cutoff
-        if stand_pat >= beta {
-            return beta;
-        }
-
-        // Is the position better than what we've seen so far?
-        if stand_pat > alpha {
-            alpha = stand_pat;
-        }
-
-        // Generating only captures and promotions
-        let captures = game.pseudo_moves()
-            .into_iter()
-            .filter(|m| match () {
-                _ if m.is_promotion() => true,
-                _ if m.is_capture()   => 
-                    game.position.static_exchange_eval(*m) >= SEE_QUIESCENCE_SEARCH_LOWER_BOUND,
-                _ => false,
-            })
-            .collect::<Vec<_>>();
-
-        for m in captures {
-            if game.try_to_make_move(&m) == false {
+        for mv in pseudo_moves {
+            if game.try_to_make_move(&mv) == false {
                 continue;
             }
 
-            let score = -self.quiescence_search(game, -beta, -alpha, nodes, ctx);
+            found_legal = true;
+            let subtree = self.negamax(game, depth - 1, -beta, -alpha, nodes, ctx);
             game.unmake_move();
 
-            if score >= beta {
-                return beta;
+            if subtree.was_unwinded {
+                return SearchResultInternal::unwinded();
             }
-            if score > alpha {
-                alpha = score;
-            }
-        }
 
-        alpha
-    }
+            let eval = -subtree.eval;
+            if eval > best_eval {
+                best_eval = eval;
+                best_move = Some(mv);
+                best_pv.clear();
+                best_pv.push(mv);
+                best_pv.extend(subtree.pv);
 
-    // Check if stop_flag was set or time is over
-    fn should_stop(&self, nodes: &mut u64, ctx: &SearchContext) -> bool {
-        // Check every 1024 nodes, because it is time-expensive
-        if *nodes % 1024 == 0 {
-            if ctx.stop_flag.load(Ordering::Relaxed) {
-                return true;
-            }
-            if let Some(limit) = ctx.time_limit {
-                if ctx.start_time.elapsed() >= limit {
-                    return true;
+                // Update history heuristic if doesn't cause beta cutoff
+                if eval < beta && !mv.is_capture() && !mv.is_promotion() {
+                    let hist = &mut self.history[mv.from as usize][mv.to as usize];
+                    *hist = hist.saturating_add((depth * depth) as i32)
+                        .clamp(0, MOVE_ORDERING_HISTORY_CAP);
                 }
             }
+
+            if best_eval > alpha {
+                alpha = best_eval;
+            }
+
+            if alpha >= beta {  // beta cutoff
+                // Update killer heuristic
+                if !mv.is_capture() && !mv.is_promotion() {
+                    let killers = &mut self.killer_moves[depth];
+                    if Some(mv) != killers[0] {
+                        killers[1] = killers[0];
+                        killers[0] = Some(mv);
+                    }
+                }
+                break;
+            }
         }
-        false
+
+        if !found_legal {
+            return self.handle_no_legal_moves(game, depth)
+        }
+
+        let flag = if best_eval <= orig_alpha {
+            NodeType::UpperBound
+        } else if best_eval >= orig_beta {
+            NodeType::LowerBound
+        } else {
+            NodeType::Exact
+        };
+
+        self.transposition_table.insert(TTEntry {
+            zobrist: game.position.zobrist_hash,
+            depth: depth as u8,
+            eval: best_eval,
+            flag,
+            best_move
+        });
+
+        SearchResultInternal {
+            best_move,
+            eval: best_eval,
+            pv: best_pv,
+            was_unwinded: false,
+        }
     }
 
     fn lookup_tt(
@@ -163,7 +179,7 @@ impl Searcher {
         beta: &mut i32,
     ) -> Option<SearchResultInternal> {
         if let Some(tt_entry) = self.transposition_table.probe(game.position.zobrist_hash) {
-            if tt_entry.depth < depth as u8 {
+            if tt_entry.depth < depth as u8 {  // Not deep enough
                 return None;
             }
 
@@ -193,135 +209,120 @@ impl Searcher {
         None
     }
 
-    fn search_moves(
-        &mut self,
-        game: &mut Game,
-        depth: usize,
-        mut alpha: i32,
-        mut beta: i32,
-        maximize: bool,
-        nodes: &mut u64,
-        ctx: &SearchContext,
-    ) -> SearchResultInternal {
-        let alpha_orig = alpha;
-        let beta_orig = beta;
-        let mut best_eval = if maximize { i32::MIN } else { i32::MAX };
-        let mut best_move = None;
-        let mut best_pv = None;
-        let mut found_legal = false;
-
-        let mut pseudo_moves = game.pseudo_moves();
-        self.order_moves(game, &mut pseudo_moves, depth, ctx.last_pv_move);
-
-        for m in pseudo_moves {
-            if !game.try_to_make_move(&m) {
-                continue;
-            }
-
-            found_legal = true;
-
-            let result = self.minimax(game, depth - 1, alpha, beta, !maximize, nodes, ctx);
-            let eval = result.eval;
-            let mut child_pv = result.pv;
-            let was_unwinded = result.was_unwinded;
-
-            game.unmake_move();
-
-            if was_unwinded {
-                return SearchResultInternal {
-                    best_move: None,
-                    eval: best_eval,
-                    pv: vec![],
-                    was_unwinded: true,
-                };
-            }
-
-            let better = (maximize && eval > best_eval) || (!maximize && eval < best_eval);
-            if better {
-                best_eval = eval;
-                best_move = Some(m);
-                child_pv.push(m);
-                best_pv = Some(child_pv);
-            }
-
-            if maximize { alpha = alpha.max(eval); } else { beta = beta.min(eval); }
-
-            if beta <= alpha {
-                self.update_killers_and_history(&m, depth);
-                break;
-            }
-        }
-
-        if !found_legal {
-            return self.handle_no_legal_moves(game, depth);
-        }
-
-        let flag = if best_eval <= alpha_orig {
-            NodeType::UpperBound
-        } else if best_eval >= beta_orig {
-            NodeType::LowerBound
-        } else {
-            NodeType::Exact
-        };
-
-        self.transposition_table.insert(TTEntry {
-            zobrist: game.position.zobrist_hash,
-            depth: depth as u8,
-            eval: best_eval,
-            flag,
-            best_move,
-        });
-
+    fn handle_no_legal_moves(&self, game: &Game, depth: usize) -> SearchResultInternal {
         SearchResultInternal {
-            best_move,
-            eval: best_eval,
-            pv: best_pv.unwrap_or_default(),
+            best_move: None,
+            eval: if game.position.is_king_in_check(game.position.player_to_move) {
+                // losing sooner is worse (depth is lower at the leafs & eval is relative to the current player)
+                -CHECKMATE_EVAL - depth as i32
+            } else {
+                DRAW_EVAL
+            },
+            pv: vec![],  // no future moves available
             was_unwinded: false,
         }
     }
 
-    fn handle_no_legal_moves(&self, game: &Game, depth: usize) -> SearchResultInternal {
-        let eval = if game.position.is_king_in_check(game.position.player_to_move) {
-            match game.position.player_to_move {
-                Player::White => -CHECKMATE_EVAL + depth as i32,
-                Player::Black => CHECKMATE_EVAL - depth as i32,
+    fn quiescence(
+        &mut self,
+        game: &mut Game,
+        mut alpha: i32,
+        beta: i32,
+        nodes: &mut u64,
+        ctx: &SearchContext,
+    ) -> SearchResultInternal {
+        *nodes += 1;
+
+        if self.should_stop(nodes, ctx) {
+            return SearchResultInternal::unwinded();
+        }
+
+        let stand_pat = game.position.evaluate();
+        if stand_pat >= beta {
+            return SearchResultInternal {
+                best_move: None,
+                eval: stand_pat,
+                pv: vec![],
+                was_unwinded: false,
+            };
+        }
+
+        if alpha < stand_pat {
+            alpha = stand_pat;
+        }
+
+        // Generating only captures and promotions
+        let mut pseudo_captures = game.pseudo_moves()
+            .into_iter()
+            .filter(|m| match () {
+                _ if m.is_promotion() => true,
+                _ if m.is_capture()   => 
+                    game.position.static_exchange_eval(*m) >= SEE_QUIESCENCE_SEARCH_LOWER_BOUND,
+                _ => false,
+            })
+            .collect::<Vec<_>>();
+        self.order_moves(game, &mut pseudo_captures, None);
+
+        for mv in pseudo_captures {
+            if game.try_to_make_move(&mv) == false {
+                continue;
             }
-        } else {
-            DRAW_EVAL
-        };
+
+            let subtree = self.quiescence(game, -beta, -alpha, nodes, ctx);
+            game.unmake_move();
+
+            if subtree.was_unwinded {
+                return SearchResultInternal::unwinded();
+            }
+
+            let eval = -subtree.eval;
+            if eval >= beta {
+                return SearchResultInternal {
+                    best_move: Some(mv),
+                    eval,
+                    pv: vec![mv],
+                    was_unwinded: false,
+                };
+            }
+            if eval > alpha {
+                alpha = eval;
+            }
+        }
 
         SearchResultInternal {
             best_move: None,
-            eval,
+            eval: alpha,
             pv: vec![],
             was_unwinded: false,
         }
     }
 
-    fn update_killers_and_history(&mut self, m: &Move, depth: usize) {
-        if !m.is_capture() && !m.is_promotion() {
-            let killers = &mut self.killer_moves[depth];
-            if Some(*m) != killers[0] {
-                killers[1] = killers[0];
-                killers[0] = Some(*m);
+    // Check if stop_flag was set or time is over
+    fn should_stop(&self, nodes: &mut u64, ctx: &SearchContext) -> bool {
+        // Check every 1024 nodes, because it is time-expensive
+        if *nodes % 1024 == 0 {
+            if ctx.stop_flag.load(Ordering::Relaxed) {
+                return true;
+            }
+            if let Some(limit) = ctx.time_limit {
+                if ctx.start_time.elapsed() >= limit {
+                    return true;
+                }
             }
         }
-
-        let hist = &mut self.history[m.from as usize][m.to as usize];
-        *hist = hist.saturating_add((depth * depth) as i32)
-            .clamp(0, MOVE_ORDERING_HISTORY_CAP);
+        false
     }
 
     /// Wrapper that helps set initial parameters for minimax recursion
-    pub fn minimax_wrapper(
+    pub fn negamax_wrapper(
         &mut self,
         game: &mut Game,
         depth: usize,
         ctx: &SearchContext,
     ) -> SearchResult {
-        let maximize = game.position.player_to_move == Player::White;
         let mut nodes = 0;
-        let result = self.minimax(game, depth, i32::MIN, i32::MAX, maximize, &mut nodes, &ctx);
+        let mut result = self.negamax(game, depth, -EVAL_INF, EVAL_INF, &mut nodes, ctx);
+        result.pv.reverse();
 
         SearchResult {
             best_move: result.best_move,

@@ -32,6 +32,7 @@ Hobby-level, bitboard-representation chess engine that **is in active developmen
     - was already doing that before
 - [ ] Rewrite searching code in the negamax style
     - because it simplifies it a lot, and I certainly did tangle myself in the minimax code!
+- [ ] Fix mate encoding and printing
 - [ ] Self-playing and evaluation constants tuning (Texel)
 - [ ] Opening book
 - [ ] Pondering

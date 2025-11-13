@@ -6,21 +6,21 @@ use crate::engine::{
 };
 
 impl Searcher {
-    pub fn order_moves(
-        &self, game: &Game, moves: &mut Vec<Move>,
-        depth: usize, last_pv_move: Option<Move>
-    ) {
+    pub fn order_moves(&self, game: &Game, moves: &mut Vec<Move>, depth: Option<usize>) {
         let hash_move = self.transposition_table
             .probe(game.position.zobrist_hash)
             .and_then(|e| e.best_move);
-        let killers = &self.killer_moves[depth];
+
         let history = &self.history;
+        let killers = if let Some(depth) = depth {
+            &self.killer_moves[depth]
+        } else {
+            &[None, None]
+        };
 
         moves.sort_by_key(|m| {
             if Some(*m) == hash_move {
                 MOVE_ORDERING_HASH_MOVE
-            } else if Some(*m) == last_pv_move {
-                MOVE_ORDERING_LAST_PV_MOVE
             } else if m.is_capture() {  // MVV-LVA captures
                 let see = game.position.static_exchange_eval(*m);
                 let mvv_lva = m.mvv_lva_score(&game.position);
@@ -31,9 +31,9 @@ impl Searcher {
                 }
             } else if m.is_promotion() {  // Promotions
                 MOVE_ORDERING_PROMOTION
-            } else if Some(*m) == killers[0] {
+            } else if depth.is_some() && Some(*m) == killers[0] {
                 MOVE_ORDERING_KILLER_1
-            } else if Some(*m) == killers[1] {
+            } else if depth.is_some() && Some(*m) == killers[1] {
                 MOVE_ORDERING_KILLER_2
             } else {
                 history[m.from as usize][m.to as usize]

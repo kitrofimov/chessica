@@ -7,11 +7,12 @@ use crate::engine::{
 
 pub type Evaluation = i32;
 
-/// Evaluate the given position and return a score from white's perspective
+/// Evaluate the given position and return a score from the perspective of the player to move
 impl Position {
     pub fn evaluate(&self) -> i32 {
         let mut score = 0;
 
+        // Count the score in "white - black" fashion
         score += self.eval_material();
         score += self.eval_piece_square_tables();
         score += self.eval_mobility();
@@ -19,6 +20,7 @@ impl Position {
         score += self.eval_king_safety();
         score += self.eval_space_control();
 
+        // Convert to "player-to-move" perspective
         if self.player_to_move == Player::White {
             score
         } else {
@@ -167,8 +169,8 @@ impl Position {
                             Player::Black => rank + 1,
                         };
                         let behind_mask = sq_to_bb(&[
-                            coord_to_sq(behind_rank, (rank-1).max(0)),
-                            coord_to_sq(behind_rank, (rank+1).min(7))
+                            coord_to_sq((rank-1).max(0), behind_rank),
+                            coord_to_sq((rank+1).min(7), behind_rank)
                         ]);
                         if (f.pawns & behind_mask) != 0 {
                             true
@@ -199,7 +201,8 @@ impl Position {
     }
 
     fn eval_king_safety_for_side(&self, player: Player) -> i32 {
-        let king_sq = self.perspective(player).0.king.trailing_zeros() as u8;
+        let (friend, _enemy) = self.perspective(player);
+        let king_sq = friend.king.trailing_zeros() as u8;
         let (file, rank) = sq_to_coord(king_sq);
         let mut score = 0;
 
@@ -215,10 +218,10 @@ impl Position {
                 let f = file as i8 + df;
                 if f < 0 || f > 7 { continue; }
                 let sq = coord_to_sq(f as u8, next_rank);
-                if (self.w.pawns & bit(sq)) == 0 {
+                if (friend.pawns & bit(sq)) == 0 {
                     score -= KING_NO_PAWN_SHIELD_PENALTY;
                 }
-                if (self.w.pawns & FILE[f as usize]) == 0 {
+                if (friend.pawns & FILE[f as usize]) == 0 {
                     score -= KING_OPEN_FILE_PENALTY;
                 }
             }

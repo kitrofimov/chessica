@@ -2,7 +2,7 @@ use std::{
     sync::{atomic::{AtomicBool, Ordering}, Arc},
     thread::JoinHandle,
 };
-use crate::constants::move_ordering::KILLER_MOVES_PLY_DEPTH;
+use crate::constants::SEARCH_MAX_PLY_DEPTH;
 use crate::engine::{
     base::_move::Move,
     search::transposition_table::*,
@@ -14,7 +14,7 @@ pub struct Searcher {
     // Move ordering heuristics
     pub transposition_table: TranspositionTable,
     pub history: [[i32; 64]; 64],  // [from][to]
-    pub killer_moves: [[Option<Move>; 2]; KILLER_MOVES_PLY_DEPTH],
+    pub killer_moves: [[Option<Move>; 2]; SEARCH_MAX_PLY_DEPTH],
 }
 
 impl Default for Searcher {
@@ -22,7 +22,7 @@ impl Default for Searcher {
         Searcher {
             transposition_table: TranspositionTable::default(),
             history: [[0; 64]; 64],
-            killer_moves: [[None; 2]; KILLER_MOVES_PLY_DEPTH],
+            killer_moves: [[None; 2]; SEARCH_MAX_PLY_DEPTH],
         }
     }
 }
