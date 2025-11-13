@@ -280,24 +280,6 @@ impl Searcher {
         }
     }
 
-    fn handle_no_legal_moves(&self, game: &Game, depth: usize) -> SearchResultInternal {
-        let eval = if game.position.is_king_in_check(game.position.player_to_move) {
-            match game.position.player_to_move {
-                Player::White => -CHECKMATE_EVAL + depth as i32,
-                Player::Black => CHECKMATE_EVAL - depth as i32,
-            }
-        } else {
-            DRAW_EVAL
-        };
-
-        SearchResultInternal {
-            best_move: None,
-            eval,
-            pv: vec![],
-            was_unwinded: false,
-        }
-    }
-
     fn update_killers_and_history(&mut self, m: &Move, depth: usize) {
         if !m.is_capture() && !m.is_promotion() {
             let killers = &mut self.killer_moves[depth];
@@ -310,6 +292,112 @@ impl Searcher {
         let hist = &mut self.history[m.from as usize][m.to as usize];
         *hist = hist.saturating_add((depth * depth) as i32)
             .clamp(0, MOVE_ORDERING_HISTORY_CAP);
+    }
+
+    fn negamax(
+        &mut self,
+        game: &mut Game,
+        depth: usize,
+        mut alpha: i32,
+        beta: i32,
+        nodes: &mut u64,
+        ctx: &SearchContext,
+    ) -> SearchResultInternal {
+        *nodes += 1;
+
+        if self.should_stop(nodes, ctx) {
+            return SearchResultInternal {
+                best_move: None,
+                eval: game.position.evaluate(),
+                pv: vec![],
+                was_unwinded: true,
+            };
+        }
+
+        if depth == 0 || game.is_draw() {
+            let eval = if depth == 0 {
+                game.position.evaluate()
+            } else {
+                DRAW_EVAL
+            };
+            return SearchResultInternal {
+                best_move: None,
+                eval,
+                pv: vec![],
+                was_unwinded: false,
+            };
+        }
+
+        let pseudo_moves = game.pseudo_moves();
+        if pseudo_moves.is_empty() {
+            return self.handle_no_legal_moves(game, depth)
+        }
+
+        let mut best_eval = i32::MIN;
+        let mut best_move = None;
+        let mut best_pv = Vec::new();
+        let mut found_legal = false;
+
+        for mv in pseudo_moves {
+            if game.try_to_make_move(&mv) == false {
+                continue;
+            }
+
+            found_legal = true;
+            let subtree = self.negamax(game, depth - 1, -beta, -alpha, nodes, ctx);
+            game.unmake_move();
+
+            if subtree.was_unwinded {
+                return SearchResultInternal {
+                    best_move: None,
+                    eval: 0,  // unwind makes whole search irrelevant, so 0 here
+                    pv: vec![],
+                    was_unwinded: true,
+                };
+            }
+
+            let eval = -subtree.eval;
+            if eval > best_eval {
+                best_eval = eval;
+                best_move = Some(mv);
+                best_pv.clear();
+                best_pv.push(mv);
+                best_pv.extend(subtree.pv);
+            }
+
+            if best_eval > alpha {
+                alpha = best_eval;
+            }
+
+            if alpha >= beta {  // beta cutoff
+                break;
+            }
+        }
+
+        if !found_legal {
+            return self.handle_no_legal_moves(game, depth)
+        }
+
+        SearchResultInternal {
+            best_move,
+            eval: best_eval,
+            pv: best_pv,
+            was_unwinded: false,
+        }
+    }
+
+    fn handle_no_legal_moves(&self, game: &Game, depth: usize) -> SearchResultInternal {
+        SearchResultInternal {
+            best_move: None,
+            eval: if game.position.is_king_in_check(game.position.player_to_move) {
+                // losing sooner is worse (depth is lower at the leafs & eval is relative to the current player)
+                -CHECKMATE_EVAL - depth as i32
+            } else {
+                DRAW_EVAL
+            },
+            pv: vec![],  // no future moves available
+            was_unwinded: false,
+        }
     }
 
     /// Wrapper that helps set initial parameters for minimax recursion
