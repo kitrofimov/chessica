@@ -81,6 +81,7 @@ impl Searcher {
         &mut self,
         game: &mut Game,
         depth: usize,
+        plies_from_root: usize,
         mut alpha: i32,
         mut beta: i32,
         nodes: &mut u64,
@@ -113,7 +114,7 @@ impl Searcher {
 
         let mut pseudo_moves = game.pseudo_moves();
         if pseudo_moves.is_empty() {
-            return self.handle_no_legal_moves(game, depth)
+            return self.handle_no_legal_moves(game, plies_from_root)
         }
 
         self.order_moves(game, &mut pseudo_moves, Some(depth));
@@ -129,7 +130,7 @@ impl Searcher {
             }
 
             found_legal = true;
-            let subtree = self.negamax(game, depth - 1, -beta, -alpha, nodes, ctx);
+            let subtree = self.negamax(game, depth-1, plies_from_root+1, -beta, -alpha, nodes, ctx);
             game.unmake_move();
 
             if subtree.was_unwinded {
@@ -170,7 +171,7 @@ impl Searcher {
         }
 
         if !found_legal {
-            return self.handle_no_legal_moves(game, depth)
+            return self.handle_no_legal_moves(game, plies_from_root);
         }
 
         let flag = if best_eval <= orig_alpha {
@@ -235,12 +236,12 @@ impl Searcher {
         None
     }
 
-    fn handle_no_legal_moves(&self, game: &Game, depth: usize) -> SearchResultInternal {
+    fn handle_no_legal_moves(&self, game: &Game, plies_from_root: usize) -> SearchResultInternal {
         SearchResultInternal {
             best_move: None,
             eval: if game.position.is_king_in_check(game.position.player_to_move) {
-                // losing sooner is worse (depth is lower at the leafs & eval is relative to the current player)
-                -CHECKMATE_EVAL - depth as i32
+                // losing sooner is worse (eval is relative to the current player)
+                -CHECKMATE_EVAL + plies_from_root as i32
             } else {
                 DRAW_EVAL
             },
@@ -347,7 +348,7 @@ impl Searcher {
         ctx: &SearchContext,
     ) -> SearchResult {
         let mut nodes = 0;
-        let mut result = self.negamax(game, depth, -EVAL_INF, EVAL_INF, &mut nodes, ctx);
+        let mut result = self.negamax(game, depth, 0, -EVAL_INF, EVAL_INF, &mut nodes, ctx);
         result.pv.reverse();
 
         SearchResult {
