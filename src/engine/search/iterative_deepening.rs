@@ -2,11 +2,13 @@ use std::{
     sync::{atomic::AtomicBool, Arc},
     time::{Duration, Instant},
 };
-use crate::engine::{
-    base::_move::Move,
-    board::game::Game,
-    search::searcher::Searcher,
-    search::minimax::SearchContext,
+use crate::{
+    constants::SEARCH_MAX_PLY_DEPTH,
+    engine::{
+        base::_move::Move,
+        board::game::Game,
+        search::{minimax::SearchContext, searcher::Searcher},
+    }
 };
 use crate::uci;
 
@@ -22,7 +24,7 @@ impl Searcher {
         let start = Instant::now();
         let mut last_pv_move = None;
 
-        for depth in 1.. {
+        for depth in 1..SEARCH_MAX_PLY_DEPTH {
             if let Some(d) = max_depth {
                 if depth > d {
                     break;

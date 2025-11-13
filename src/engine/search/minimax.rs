@@ -4,8 +4,8 @@ use std::{
 };
 use crate::constants::{
     move_ordering::MOVE_ORDERING_HISTORY_CAP,
-    evaluation::EVAL_INF,
-    *
+    evaluation::*,
+    SEE_QUIESCENCE_SEARCH_LOWER_BOUND
 };
 use crate::engine::{
     base::_move::Move,
@@ -51,57 +51,25 @@ pub struct SearchResult {
 }
 
 impl Searcher {
-    fn lookup_tt(
-        &mut self,
-        game: &Game,
-        depth: usize,
-        alpha: &mut i32,
-        beta: &mut i32,
-    ) -> Option<SearchResultInternal> {
-        if let Some(tt_entry) = self.transposition_table.probe(game.position.zobrist_hash) {
-            if tt_entry.depth < depth as u8 {
-                return None;
-            }
-
-            let possible_result = SearchResultInternal {
-                best_move: tt_entry.best_move,
-                eval: tt_entry.eval,
-                pv: vec![],
-                was_unwinded: false,
-            };
-
-            match tt_entry.flag {
-                NodeType::Exact => return Some(possible_result),
-                NodeType::LowerBound => {
-                    if tt_entry.eval >= *beta {
-                        return Some(possible_result);
-                    }
-                    *alpha = (*alpha).max(tt_entry.eval);
-                }
-                NodeType::UpperBound => {
-                    if tt_entry.eval <= *alpha {
-                        return Some(possible_result);
-                    }
-                    *beta = (*beta).min(tt_entry.eval);
-                }
-            }
-        }
-        None
-    }
-
     fn negamax(
         &mut self,
         game: &mut Game,
         depth: usize,
         mut alpha: i32,
-        beta: i32,
+        mut beta: i32,
         nodes: &mut u64,
         ctx: &SearchContext,
     ) -> SearchResultInternal {
         *nodes += 1;
+        let orig_alpha = alpha;
+        let orig_beta  = beta;
 
         if self.should_stop(nodes, ctx) {
             return SearchResultInternal::unwinded();
+        }
+
+        if let Some(tt_result) = self.lookup_tt(game, depth, &mut alpha, &mut beta) {
+            return tt_result;
         }
 
         if depth == 0 {
@@ -151,7 +119,7 @@ impl Searcher {
                 best_pv.extend(subtree.pv);
 
                 // Update history heuristic if doesn't cause beta cutoff
-                if eval < beta {
+                if eval < beta && !mv.is_capture() && !mv.is_promotion() {
                     let hist = &mut self.history[mv.from as usize][mv.to as usize];
                     *hist = hist.saturating_add((depth * depth) as i32)
                         .clamp(0, MOVE_ORDERING_HISTORY_CAP);
@@ -179,12 +147,66 @@ impl Searcher {
             return self.handle_no_legal_moves(game, depth)
         }
 
+        let flag = if best_eval <= orig_alpha {
+            NodeType::UpperBound
+        } else if best_eval >= orig_beta {
+            NodeType::LowerBound
+        } else {
+            NodeType::Exact
+        };
+
+        self.transposition_table.insert(TTEntry {
+            zobrist: game.position.zobrist_hash,
+            depth: depth as u8,
+            eval: best_eval,
+            flag,
+            best_move
+        });
+
         SearchResultInternal {
             best_move,
             eval: best_eval,
             pv: best_pv,
             was_unwinded: false,
         }
+    }
+
+    fn lookup_tt(
+        &mut self,
+        game: &Game,
+        depth: usize,
+        alpha: &mut i32,
+        beta: &mut i32,
+    ) -> Option<SearchResultInternal> {
+        if let Some(tt_entry) = self.transposition_table.probe(game.position.zobrist_hash) {
+            if tt_entry.depth < depth as u8 {  // Not deep enough
+                return None;
+            }
+
+            let possible_result = SearchResultInternal {
+                best_move: tt_entry.best_move,
+                eval: tt_entry.eval,
+                pv: vec![],
+                was_unwinded: false,
+            };
+
+            match tt_entry.flag {
+                NodeType::Exact => return Some(possible_result),
+                NodeType::LowerBound => {
+                    if tt_entry.eval >= *beta {
+                        return Some(possible_result);
+                    }
+                    *alpha = (*alpha).max(tt_entry.eval);
+                }
+                NodeType::UpperBound => {
+                    if tt_entry.eval <= *alpha {
+                        return Some(possible_result);
+                    }
+                    *beta = (*beta).min(tt_entry.eval);
+                }
+            }
+        }
+        None
     }
 
     fn handle_no_legal_moves(&self, game: &Game, depth: usize) -> SearchResultInternal {
@@ -299,7 +321,8 @@ impl Searcher {
         ctx: &SearchContext,
     ) -> SearchResult {
         let mut nodes = 0;
-        let result = self.negamax(game, depth, -EVAL_INF, EVAL_INF, &mut nodes, ctx);
+        let mut result = self.negamax(game, depth, -EVAL_INF, EVAL_INF, &mut nodes, ctx);
+        result.pv.reverse();
 
         SearchResult {
             best_move: result.best_move,

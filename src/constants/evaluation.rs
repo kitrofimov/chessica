@@ -1,6 +1,8 @@
 /// Piece-square tables (for white player) and other constants required for evaluating a position
 
 pub const EVAL_INF: i32 = 1_000_000;
+pub const CHECKMATE_EVAL: i32 = 950_000;
+pub const DRAW_EVAL: i32 = 0;
 
 // TODO: all these constants are probably shit, they should be tested and changed!
 pub const PAWN_ISOLATED_PENALTY:       i32 = 15;
