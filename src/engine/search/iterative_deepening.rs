@@ -7,7 +7,7 @@ use crate::{
     engine::{
         base::_move::Move,
         board::game::Game,
-        search::{minimax::SearchContext, searcher::Searcher},
+        search::searcher::*,
     }
 };
 use crate::uci;
