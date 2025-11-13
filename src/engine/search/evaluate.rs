@@ -169,8 +169,8 @@ impl Position {
                             Player::Black => rank + 1,
                         };
                         let behind_mask = sq_to_bb(&[
-                            coord_to_sq(behind_rank, (rank-1).max(0)),
-                            coord_to_sq(behind_rank, (rank+1).min(7))
+                            coord_to_sq((rank-1).max(0), behind_rank),
+                            coord_to_sq((rank+1).min(7), behind_rank)
                         ]);
                         if (f.pawns & behind_mask) != 0 {
                             true
@@ -201,7 +201,8 @@ impl Position {
     }
 
     fn eval_king_safety_for_side(&self, player: Player) -> i32 {
-        let king_sq = self.perspective(player).0.king.trailing_zeros() as u8;
+        let (friend, _enemy) = self.perspective(player);
+        let king_sq = friend.king.trailing_zeros() as u8;
         let (file, rank) = sq_to_coord(king_sq);
         let mut score = 0;
 
@@ -217,10 +218,10 @@ impl Position {
                 let f = file as i8 + df;
                 if f < 0 || f > 7 { continue; }
                 let sq = coord_to_sq(f as u8, next_rank);
-                if (self.w.pawns & bit(sq)) == 0 {
+                if (friend.pawns & bit(sq)) == 0 {
                     score -= KING_NO_PAWN_SHIELD_PENALTY;
                 }
-                if (self.w.pawns & FILE[f as usize]) == 0 {
+                if (friend.pawns & FILE[f as usize]) == 0 {
                     score -= KING_OPEN_FILE_PENALTY;
                 }
             }
