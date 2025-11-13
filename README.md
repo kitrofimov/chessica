@@ -28,9 +28,11 @@ Hobby-level, bitboard-representation chess engine that **is in active developmen
 - [x] Static Exchange Evaluation
 - [x] Better evaluation function
 - [x] Better time control (adaptive `moves_remaining` in `uci::compute_movetime`)
-- [ ] Clearing move ordering heuristics on `ucinewgame`?
-- [ ] Negamax?
-- [ ] Fix forced mate evaluation
+- [x] Clearing move ordering heuristics on `ucinewgame`?
+    - was already doing that before
+- [ ] Rewrite searching code in the negamax style
+    - because it simplifies it a lot, and I certainly did tangle myself in the minimax code!
+- [ ] Self-playing and evaluation constants tuning (Texel)
 - [ ] Opening book
 - [ ] Pondering
 - [ ] Endgame database
