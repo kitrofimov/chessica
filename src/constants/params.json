@@ -1,0 +1,18 @@
+{
+  "pawn_value": 100,
+  "knight_value": 320,
+  "bishop_value": 330,
+  "rook_value": 500,
+  "queen_value": 900,
+  "pawn_isolated_penalty": 15,
+  "pawn_doubled_penalty": 10,
+  "pawn_passed_base_bonus": 20,
+  "pawn_passed_rank_bonus": 10,
+  "pawn_protected_passed_bonus": 10,
+  "king_castled_bonus": 20,
+  "king_center_penalty": 30,
+  "king_open_file_penalty": 15,
+  "king_no_pawn_shield_penalty": 10,
+  "space_control_center_bonus": 3,
+  "space_control_enemy_half_bonus": 1
+}

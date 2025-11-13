@@ -16,15 +16,16 @@ use crate::engine::{
 /// Structure orchestrating the search process
 #[derive(Clone)]
 pub struct Searcher {
-    // Move ordering heuristics
+    pub eval_params: EvalParams,
     pub transposition_table: TranspositionTable,
     pub history: [[i32; 64]; 64],  // [from][to]
     pub killer_moves: [[Option<Move>; 2]; SEARCH_MAX_PLY_DEPTH],
 }
 
-impl Default for Searcher {
-    fn default() -> Self {
+impl Searcher {
+    pub fn new(path_to_eval_params: &str) -> Self {
         Searcher {
+            eval_params: EvalParams::load(path_to_eval_params).unwrap(),
             transposition_table: TranspositionTable::default(),
             history: [[0; 64]; 64],
             killer_moves: [[None; 2]; SEARCH_MAX_PLY_DEPTH],
@@ -264,7 +265,7 @@ impl Searcher {
             return SearchResultInternal::unwinded();
         }
 
-        let stand_pat = game.position.evaluate();
+        let stand_pat = game.position.evaluate(&self.eval_params);
         if stand_pat >= beta {
             return SearchResultInternal {
                 best_move: None,

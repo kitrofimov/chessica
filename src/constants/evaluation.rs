@@ -1,23 +1,9 @@
 /// Piece-square tables (for white player) and other constants required for evaluating a position
+/// Learned constants are taken from a JSON file and are stored in EvalParams struct
 
 pub const EVAL_INF: i32 = 1_000_000;
 pub const CHECKMATE_EVAL: i32 = 950_000;
 pub const DRAW_EVAL: i32 = 0;
-
-// TODO: all these constants are probably shit, they should be tested and changed!
-pub const PAWN_ISOLATED_PENALTY:       i32 = 15;
-pub const PAWN_DOUBLED_PENALTY:        i32 = 10;
-pub const PAWN_PASSED_BASE_BONUS:      i32 = 20;
-pub const PAWN_PASSED_RANK_BONUS:      i32 = 10;  // per rank advanced
-pub const PAWN_PROTECTED_PASSED_BONUS: i32 = 10;
-
-pub const KING_CASTLED_BONUS:          i32 = 20;
-pub const KING_CENTER_PENALTY:         i32 = 30;
-pub const KING_OPEN_FILE_PENALTY:      i32 = 15;  // no pawns at all
-pub const KING_NO_PAWN_SHIELD_PENALTY: i32 = 10;  // no pawns in front of the king
-
-pub const SPACE_CONTROL_CENTER_BONUS:     i32 = 3;
-pub const SPACE_CONTROL_ENEMY_HALF_BONUS: i32 = 1;
 
 pub const PAWN_PST: [i32; 64] = [
      0,  0,  0,  0,  0,  0,  0,  0,

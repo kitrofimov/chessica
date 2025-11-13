@@ -18,7 +18,7 @@ Hobby-level, bitboard-representation chess engine that **is in active developmen
 
 ## Roadmap
 - [x] Get this thing to play reasonable (although not really smart) chess!
-- [ ] Debug & fix forced mate encoding and printing
+- [x] Debug & fix forced mate encoding and printing
 - [ ] Self-playing and evaluation constants tuning (Texel)
 - [ ] Opening book
 - [ ] Endgame database

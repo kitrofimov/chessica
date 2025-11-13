@@ -1,3 +1,4 @@
+use crate::constants::PATH_TO_EVAL_PARAMS;
 use crate::uci::constants::*;
 use crate::engine::{
     engine::Engine,
@@ -16,7 +17,7 @@ pub fn isready() {
 }
 
 pub fn ucinewgame(engine: &mut Engine) {
-    *engine = Engine::default();
+    *engine = Engine::new(PATH_TO_EVAL_PARAMS);
 }
 
 pub fn position(engine: &mut Engine, tokens: &[&str]) {
@@ -44,7 +45,7 @@ pub fn position(engine: &mut Engine, tokens: &[&str]) {
             }
         }
         "startpos" => {
-            *engine = Engine::default();
+            *engine = Engine::new(PATH_TO_EVAL_PARAMS);
             i = 2;
         }
         _ => return,

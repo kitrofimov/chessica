@@ -3,14 +3,17 @@ use std::sync::{Arc, atomic::AtomicBool};
 use std::thread::JoinHandle;
 
 use chessica::uci::{self, constants::*};
-use chessica::engine::{
-    engine::Engine,
-    search::searcher::Searcher,
+use chessica::{
+    constants::*,
+    engine::{
+        engine::Engine,
+        search::searcher::Searcher,
+    },
 };
 
 fn main() {
     let stdin = io::stdin();
-    let mut engine = Engine::default();
+    let mut engine = Engine::new(PATH_TO_EVAL_PARAMS);
 
     let mut stop_flag = Arc::new(AtomicBool::new(false));
     let mut search_thread: Option<JoinHandle<()>> = None;
