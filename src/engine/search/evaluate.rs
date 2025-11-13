@@ -7,11 +7,12 @@ use crate::engine::{
 
 pub type Evaluation = i32;
 
-/// Evaluate the given position and return a score from white's perspective
+/// Evaluate the given position and return a score from the perspective of the player to move
 impl Position {
     pub fn evaluate(&self) -> i32 {
         let mut score = 0;
 
+        // Count the score in "white - black" fashion
         score += self.eval_material();
         score += self.eval_piece_square_tables();
         score += self.eval_mobility();
@@ -19,6 +20,7 @@ impl Position {
         score += self.eval_king_safety();
         score += self.eval_space_control();
 
+        // Convert to "player-to-move" perspective
         if self.player_to_move == Player::White {
             score
         } else {
