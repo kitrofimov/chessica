@@ -17,27 +17,12 @@
 Hobby-level, bitboard-representation chess engine that **is in active development stage, hence many features are still missing**.
 
 ## Roadmap
-- [x] Move generation
-- [x] Alpha-beta pruned minimax search
-- [x] Zobrist hashing
-- [x] (A little bit of) optimization
-- [x] Move ordering
-- [x] Transposition table
-    - [x] Add TT move to Move Ordering
-- [x] Quiescence Search
-- [x] Static Exchange Evaluation
-- [x] Better evaluation function
-- [x] Better time control (adaptive `moves_remaining` in `uci::compute_movetime`)
-- [x] Clearing move ordering heuristics on `ucinewgame`?
-    - was already doing that before
-- [ ] Rewrite searching code in the negamax style
-    - because it simplifies it a lot, and I certainly did tangle myself in the minimax code!
-- [ ] Fix mate encoding and printing
+- [x] Get this thing to play reasonable (although not really smart) chess!
+- [ ] Debug & fix forced mate encoding and printing
 - [ ] Self-playing and evaluation constants tuning (Texel)
 - [ ] Opening book
-- [ ] Pondering
 - [ ] Endgame database
-- [ ] Alpha-beta pruning graphviz visualization (for debugging purposes)
+- [ ] Pondering
 
 ## Building
 
