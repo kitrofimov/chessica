@@ -6,7 +6,10 @@ use crate::engine::{
 };
 
 impl Searcher {
-    pub fn order_moves(&self, game: &Game, moves: &mut Vec<Move>, depth: Option<usize>) {
+    pub fn order_moves(
+        &self, game: &Game, moves: &mut Vec<Move>,
+        depth: Option<usize>, last_pv_move: Option<Move>
+    ) {
         let hash_move = self.transposition_table
             .probe(game.position.zobrist_hash)
             .and_then(|e| e.best_move);
@@ -21,6 +24,8 @@ impl Searcher {
         moves.sort_by_key(|m| {
             if Some(*m) == hash_move {
                 MOVE_ORDERING_HASH_MOVE
+            } else if Some(*m) == last_pv_move {
+                MOVE_ORDERING_LAST_PV_MOVE
             } else if m.is_capture() {  // MVV-LVA captures
                 let see = game.position.static_exchange_eval(*m);
                 let mvv_lva = m.mvv_lva_score(&game.position);

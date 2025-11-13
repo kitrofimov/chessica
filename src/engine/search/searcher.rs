@@ -117,7 +117,7 @@ impl Searcher {
             return self.handle_no_legal_moves(game, plies_from_root)
         }
 
-        self.order_moves(game, &mut pseudo_moves, Some(depth));
+        self.order_moves(game, &mut pseudo_moves, Some(depth), ctx.last_pv_move);
 
         let mut best_eval = -EVAL_INF;
         let mut best_move = None;
@@ -288,7 +288,7 @@ impl Searcher {
                 _ => false,
             })
             .collect::<Vec<_>>();
-        self.order_moves(game, &mut pseudo_captures, None);
+        self.order_moves(game, &mut pseudo_captures, None, ctx.last_pv_move);
 
         for mv in pseudo_captures {
             if game.try_to_make_move(&mv) == false {
