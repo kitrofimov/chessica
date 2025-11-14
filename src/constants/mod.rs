@@ -9,8 +9,7 @@ pub mod evaluation;
 // Preallocation constants
 pub const GAME_HISTORY_CAPACITY: usize = 256;
 pub const MOVE_LIST_CAPACITY: usize = 256;
-pub const TRANSPOSITION_TABLE_MB_SIZE: usize = 64;
-pub const PATH_TO_EVAL_PARAMS: &str = "params.json";
+pub const DEFAULT_HASH_MB_SIZE: usize = 16;
 
 // Search and SEE constants
 pub const SEARCH_MAX_PLY_DEPTH: usize = 128;

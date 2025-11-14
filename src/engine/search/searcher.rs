@@ -22,10 +22,10 @@ pub struct Searcher {
     pub killer_moves: [[Option<Move>; 2]; SEARCH_MAX_PLY_DEPTH],
 }
 
-impl Searcher {
-    pub fn new(path_to_eval_params: &str) -> Self {
+impl Default for Searcher {
+    fn default() -> Self {
         Searcher {
-            eval_params: EvalParams::load(path_to_eval_params).unwrap(),
+            eval_params: EvalParams::default(),
             transposition_table: TranspositionTable::default(),
             history: [[0; 64]; 64],
             killer_moves: [[None; 2]; SEARCH_MAX_PLY_DEPTH],

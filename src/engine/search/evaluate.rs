@@ -51,12 +51,6 @@ impl EvalParams {
         let params = serde_json::from_str(&json)?;
         Ok(params)
     }
-    
-    pub fn save(&self, path: &str) -> Result<(), Box<dyn std::error::Error>> {
-        let json = serde_json::to_string_pretty(self)?;
-        std::fs::write(path, json)?;
-        Ok(())
-    }
 }
 
 impl Position {

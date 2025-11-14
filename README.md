@@ -19,8 +19,9 @@ Hobby-level, bitboard-representation chess engine that **is in active developmen
 ## Roadmap
 - [x] Get this thing to play reasonable (although not really smart) chess!
 - [x] Debug & fix forced mate encoding and printing
+- [x] Opening book
+    - it is usually handled on the GUI's side, so no code needed
 - [ ] Self-playing and evaluation constants tuning (Texel)
-- [ ] Opening book
 - [ ] Endgame database
 - [ ] Pondering
 
@@ -47,3 +48,7 @@ cargo build
     - Articles on [Wikipedia](https://en.wikipedia.org/wiki/Zobrist_hashing) and [CPW](https://www.chessprogramming.org/Zobrist_Hashing)
     - [How to implement Zobrist tables?](https://chess.stackexchange.com/questions/42708/how-to-implement-zobrist-tables) on Chess StackExchange
     - [Why is the initial state of Zobrist hashing random?](https://cs.stackexchange.com/questions/22033/why-is-the-initial-state-of-zobrist-hashing-random) on CS StackExchange
+- Opening Books:
+    - [Opening Books of Lc0](https://github.com/jhorthos/lczero-training/wiki/Opening-Books)
+    - [`free-opening-books`](https://github.com/gmcheems-org/free-opening-books) repository
+    - [Official Stockfish opening books](https://github.com/official-stockfish/books)

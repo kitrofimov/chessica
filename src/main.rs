@@ -3,17 +3,14 @@ use std::sync::{Arc, atomic::AtomicBool};
 use std::thread::JoinHandle;
 
 use chessica::uci::{self, constants::*};
-use chessica::{
-    constants::*,
-    engine::{
-        engine::Engine,
-        search::searcher::Searcher,
-    },
-};
+use chessica::{engine::{
+    engine::Engine,
+    search::searcher::Searcher,
+}};
 
 fn main() {
     let stdin = io::stdin();
-    let mut engine = Engine::new(PATH_TO_EVAL_PARAMS);
+    let mut engine = Engine::default();
 
     let mut stop_flag = Arc::new(AtomicBool::new(false));
     let mut search_thread: Option<JoinHandle<()>> = None;
@@ -31,6 +28,7 @@ fn main() {
             "ucinewgame" => uci::ucinewgame(&mut engine),
             "position"   => uci::position(&mut engine, &tokens),
             "go"         => uci::go(&mut engine, &tokens, &mut stop_flag, &mut search_thread),
+            "setoption"  => uci::setoption(&mut engine, &tokens),
             "stop"       => Searcher::stop_search(&mut stop_flag, &mut search_thread),
             "quit" => {
                 Searcher::stop_search(&mut stop_flag, &mut search_thread);

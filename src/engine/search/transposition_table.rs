@@ -1,5 +1,5 @@
 use crate::engine::base::_move::Move;
-use crate::constants::TRANSPOSITION_TABLE_MB_SIZE;
+use crate::constants::DEFAULT_HASH_MB_SIZE;
 
 #[derive(Clone, Copy)]
 pub struct TTEntry {
@@ -25,13 +25,13 @@ pub struct TranspositionTable {
 
 impl Default for TranspositionTable {
     fn default() -> Self {
-        Self::new()
+        Self::new(DEFAULT_HASH_MB_SIZE)
     }
 }
 
 impl TranspositionTable {
-    pub fn new() -> Self {
-        let num_entries = (TRANSPOSITION_TABLE_MB_SIZE * 1024 * 1024) / std::mem::size_of::<TTEntry>();
+    pub fn new(mb_size: usize) -> Self {
+        let num_entries = (mb_size * 1024 * 1024) / std::mem::size_of::<TTEntry>();
         Self {
             table: vec![None; num_entries],
         }
