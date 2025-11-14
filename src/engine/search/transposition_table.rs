@@ -21,6 +21,7 @@ pub enum NodeType {
 #[derive(Clone)]
 pub struct TranspositionTable {
     table: Vec<Option<TTEntry>>,
+    used: usize,
 }
 
 impl Default for TranspositionTable {
@@ -34,6 +35,7 @@ impl TranspositionTable {
         let num_entries = (mb_size * 1024 * 1024) / std::mem::size_of::<TTEntry>();
         Self {
             table: vec![None; num_entries],
+            used: 0,
         }
     }
 
@@ -49,6 +51,9 @@ impl TranspositionTable {
                 return;
             }
         }
+        if self.table[idx].is_none() {
+            self.used += 1;
+        }
         self.table[idx] = Some(entry);
     }
 
@@ -61,5 +66,9 @@ impl TranspositionTable {
             }
         }
         None
+    }
+
+    pub fn hashfull(&self) -> u8 {
+        ((self.used * 100) / self.table.len()) as u8
     }
 }

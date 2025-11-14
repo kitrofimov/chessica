@@ -2,8 +2,10 @@ use std::time::Duration;
 use crate::constants::evaluation::*;
 use crate::engine::base::_move::Move;
 
-// TODO: fix mate encoding and printing
-pub fn print_uci_info(depth: usize, eval: i32, nodes: u64, pv: Vec<Move>, elapsed: Duration) {
+pub fn print_uci_info(
+    depth: usize, eval: i32, nodes: u64, pv: Vec<Move>,
+    elapsed: Duration, hashfull: u8
+) {
     let score = if eval.abs() > CHECKMATE_EVAL - 1000 {
         let n_moves = ((CHECKMATE_EVAL - eval.abs()) as f64 / 2.).ceil();
         let mate_in = if eval > 0 { n_moves } else { -n_moves };
@@ -13,15 +15,16 @@ pub fn print_uci_info(depth: usize, eval: i32, nodes: u64, pv: Vec<Move>, elapse
     };
 
     print!(
-        "info depth {} score {} time {} nodes {} nps {} pv ",
+        "info depth {} score {} time {} nodes {} nps {} hashfull {} pv ",
         depth,
         score,
         elapsed.as_millis(),
         nodes,
-        (nodes as f64 / elapsed.as_secs_f64()).round()
+        (nodes as f64 / elapsed.as_secs_f64()).round(),
+        hashfull,
     );
 
-    for m in pv.iter().rev() {
+    for m in pv {
         print!("{} ", m);
     }
     println!();

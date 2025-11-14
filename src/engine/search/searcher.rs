@@ -349,8 +349,7 @@ impl Searcher {
         ctx: &SearchContext,
     ) -> SearchResult {
         let mut nodes = 0;
-        let mut result = self.negamax(game, depth, 0, -EVAL_INF, EVAL_INF, &mut nodes, ctx);
-        result.pv.reverse();
+        let result = self.negamax(game, depth, 0, -EVAL_INF, EVAL_INF, &mut nodes, ctx);
 
         SearchResult {
             best_move: result.best_move,

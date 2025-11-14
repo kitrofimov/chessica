@@ -49,7 +49,10 @@ impl Searcher {
 
             last_move = result.best_move;
             last_pv_move = Some(result.pv[0]);
-            uci::print_uci_info(depth, result.eval, result.nodes, result.pv, elapsed);
+            uci::print_uci_info(
+                depth, result.eval, result.nodes,
+                result.pv, elapsed, self.transposition_table.hashfull()
+            );
 
             if let Some(limit) = time_limit {
                 if start.elapsed() >= limit {
